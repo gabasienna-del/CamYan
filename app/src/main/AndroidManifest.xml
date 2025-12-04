@@ -1,22 +1,32 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     package="com.gaba.eskukap">
 
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage"/>
+    <!-- Разрешения на чтение фото -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission
+        android:name="android.permission.READ_MEDIA_IMAGES"
+        tools:targetApi="33" />
+    <uses-permission
+        android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
 
     <application
         android:allowBackup="true"
         android:label="CamYan"
         android:theme="@style/AppTheme">
 
+        <!-- Наш фейковый провайдер фото -->
         <provider
-            android:name="com.gaba.eskukap.provider.FakePhotoProvider"
+            android:name=".provider.FakePhotoProvider"
             android:authorities="com.gaba.eskukap.fakephoto"
             android:exported="true"
             android:grantUriPermissions="true" />
 
-        <activity android:name=".ui.CamYanSettingsActivity"
-            android:theme="@style/AppTheme"/>
+        <!-- Настройки модуля -->
+        <activity
+            android:name=".ui.CamYanSettingsActivity"
+            android:theme="@style/AppTheme" />
     </application>
+
 </manifest>
