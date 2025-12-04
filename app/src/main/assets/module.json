@@ -1,0 +1,11 @@
+{
+  "name": "CamYan",
+  "version": "1.0",
+  "package": "com.gaba.eskukap",
+  "description": "LSPosed module test",
+  "settingsActivity": "com.gaba.eskukap.ui.CamYanSettingsActivity",
+  "hook": [
+      "com.gaba.eskukap.hook.CamYanHook",
+      "com.gaba.eskukap.hook.CameraScan"
+  ]
+}
