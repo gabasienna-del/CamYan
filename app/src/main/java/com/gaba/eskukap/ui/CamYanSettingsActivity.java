@@ -7,7 +7,10 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.ImageView;
+
 import androidx.annotation.Nullable;
+
+import com.gaba.eskukap.R;
 
 import java.io.InputStream;
 
@@ -32,13 +35,17 @@ public class CamYanSettingsActivity extends Activity {
     }
 
     @Override
-    protected void onActivityResult(int req, int res, @Nullable Intent data) {
-        super.onActivityResult(req, res, data);
-        if (req == PICK_IMAGE && res == RESULT_OK && data != null) {
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == PICK_IMAGE && resultCode == RESULT_OK && data != null) {
             Uri uri = data.getData();
+            if (uri == null) return;
             try {
                 InputStream is = getContentResolver().openInputStream(uri);
-                preview.setImageBitmap(BitmapFactory.decodeStream(is));
+                if (is != null) {
+                    preview.setImageBitmap(BitmapFactory.decodeStream(is));
+                    is.close();
+                }
             } catch (Exception ignored) {}
         }
     }
