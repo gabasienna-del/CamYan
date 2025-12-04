@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.gaba.eskukap">
+
+    <uses-sdk android:minSdkVersion="24" android:targetSdkVersion="34"/>
+
+    <application
+        android:label="CamYan"
+        android:supportsRtl="true">
+
+        <activity android:name="com.gaba.eskukap.ui.CamYanSettingsActivity"
+            android:exported="true"
+            android:label="CamYan Settings" />
+
+        <provider
+            android:name="com.gaba.eskukap.provider.FakePhotoProvider"
+            android:authorities="com.gaba.eskukap.fakephoto"
+            android:exported="true"
+            android:grantUriPermissions="true" />
+
+        <meta-data android:name="xposedmodule" android:value="true"/>
+        <meta-data android:name="xposeddescription" android:value="CamYan LSPosed Module"/>
+        <meta-data android:name="xposedminversion" android:value="82"/>
+        <meta-data android:name="xposedsettings" android:value="com.gaba.eskukap.ui.CamYanSettingsActivity"/>
+    </application>
+
+</manifest>
