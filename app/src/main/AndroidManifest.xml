@@ -2,33 +2,42 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.gaba.eskukap">
 
+    <uses-sdk android:minSdkVersion="24" android:targetSdkVersion="34" />
+
     <application
         android:label="CamYan"
         android:icon="@android:drawable/sym_def_app_icon"
         android:debuggable="true"
+        android:allowBackup="false"
+        android:usesCleartextTraffic="true"
         android:supportsRtl="true"
-        android:usesCleartextTraffic="true">
+        android:appComponentFactory="androidx.core.app.CoreComponentFactory">
 
+        <!-- НАСТРОЙКИ МОДУЛЯ + LAUNCHER -->
         <activity
             android:name="com.gaba.eskukap.ui.CamYanSettingsActivity"
             android:exported="true"
             android:label="CamYan">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
+        <!-- Provider для FakePhoto -->
         <provider
             android:name="com.gaba.eskukap.provider.FakePhotoProvider"
             android:authorities="com.gaba.eskukap.fakephoto"
             android:exported="true"
             android:grantUriPermissions="true" />
 
-        <meta-data android:name="xposedmodule" android:value="true"/>
-        <meta-data android:name="xposeddescription" android:value="Fake Camera Provider for LSPosed"/>
-        <meta-data android:name="xposedminversion" android:value="82"/>
-        <meta-data android:name="xposedsettings" android:value="com.gaba.eskukap.ui.CamYanSettingsActivity"/>
+        <!-- Xposed метаданные -->
+        <meta-data android:name="xposedmodule" android:value="true" />
+        <meta-data android:name="xposeddescription" android:value="CamYan LSPosed Module" />
+        <meta-data android:name="xposedminversion" android:value="82" />
+        <meta-data android:name="xposedsettings"
+            android:value="com.gaba.eskukap.ui.CamYanSettingsActivity" />
 
     </application>
+
 </manifest>
