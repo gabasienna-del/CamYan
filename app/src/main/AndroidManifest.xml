@@ -3,17 +3,40 @@
     xmlns:tools="http://schemas.android.com/tools"
     package="com.gaba.eskukap">
 
-    <!-- Доступ к медиа -->
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+    <!-- Доступ к фоткам -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"
+        tools:ignore="ScopedStorage" />
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
-        tools:ignore="ScopedStorage"/>
+        tools:ignore="ScopedStorage" />
 
     <application
         android:allowBackup="true"
         android:supportsRtl="true"
         android:label="CamYan">
 
+        <!-- Xposed / LSPosed: объявляем модуль -->
+        <meta-data
+            android:name="xposedmodule"
+            android:value="true" />
+        <meta-data
+            android:name="xposeddescription"
+            android:value="CamYan fake selfie provider" />
+        <meta-data
+            android:name="xposedminversion"
+            android:value="93" />
+
+        <!-- Activity настроек с иконкой в меню -->
+        <activity
+            android:name=".ui.CamYanSettingsActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Провайдер фейкового фото -->
         <provider
             android:name=".provider.FakePhotoProvider"
             android:authorities="${applicationId}.fakephoto"
