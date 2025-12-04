@@ -2,7 +2,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     package="com.gaba.eskukap">
 
-    <!-- Разрешения на чтение фото -->
+    <!-- Разрешения на фото -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission
         android:name="android.permission.READ_MEDIA_IMAGES"
@@ -16,7 +16,7 @@
         android:label="CamYan"
         android:theme="@style/AppTheme">
 
-        <!-- Xposed meta-data: по ним LSPosed видит модуль -->
+        <!-- Xposed meta-data -->
         <meta-data
             android:name="xposedmodule"
             android:value="true" />
@@ -27,17 +27,25 @@
             android:name="xposedminversion"
             android:value="93" />
 
-        <!-- наш фейковый провайдер фото -->
+        <!-- FakePhotoProvider -->
         <provider
             android:name=".provider.FakePhotoProvider"
             android:authorities="com.gaba.eskukap.fakephoto"
             android:exported="true"
             android:grantUriPermissions="true" />
 
-        <!-- экран настроек модуля -->
+        <!-- Окно настроек модуля для LSPosed -->
         <activity
             android:name=".ui.CamYanSettingsActivity"
-            android:theme="@style/AppTheme" />
+            android:theme="@style/AppTheme"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <!-- важно: категория настроек Xposed -->
+                <category android:name="de.robv.android.xposed.category.MODULE_SETTINGS" />
+            </intent-filter>
+        </activity>
+
     </application>
 
 </manifest>
