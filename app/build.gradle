@@ -17,21 +17,10 @@ android {
     buildTypes {
         release {
             minifyEnabled false
-            shrinkResources false
-            debuggable false
-        }
-        debug {
-            minifyEnabled false
-            shrinkResources false
-            debuggable true
         }
     }
 }
 
 dependencies {
-    implementation 'androidx.appcompat:appcompat:1.6.1'
-    implementation 'androidx.preference:preference:1.2.1'
-
-    // LSPosed API jar
-    compileOnly files('libs/api-82.jar')
+    implementation files('libs/api-82.jar')
 }
