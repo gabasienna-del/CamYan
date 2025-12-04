@@ -2,13 +2,33 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:orientation="vertical"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:padding="12dp">
+
+    <TextView
+        android:id="@+id/title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="CamYan настройки"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:paddingBottom="8dp" />
 
     <ImageView
         android:id="@+id/imagePreview"
         android:layout_width="match_parent"
         android:layout_height="200dp"
-        android:scaleType="centerCrop" />
+        android:adjustViewBounds="true"
+        android:scaleType="centerCrop"
+        android:background="#22000000" />
+
+    <TextView
+        android:id="@+id/imageInfo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Фейковое фото не выбрано"
+        android:paddingTop="4dp"
+        android:paddingBottom="8dp" />
 
     <FrameLayout
         android:id="@+id/settings_container"
