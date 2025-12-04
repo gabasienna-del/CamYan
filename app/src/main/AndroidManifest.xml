@@ -4,14 +4,41 @@
 
     <uses-sdk android:minSdkVersion="24" android:targetSdkVersion="34" />
 
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+
     <application
         android:label="CamYan"
-        android:supportsRtl="true">
+        android:icon="@mipmap/ic_launcher"
+        android:debuggable="true"
+        android:allowBackup="false"
+        android:extractNativeLibs="false"
+        android:usesCleartextTraffic="true"
+        android:supportsRtl="true"
+        android:appComponentFactory="androidx.core.app.CoreComponentFactory">
 
+        <!-- Главный экран теперь сразу CamYanSettingsActivity -->
         <activity
             android:name="com.gaba.eskukap.ui.CamYanSettingsActivity"
             android:exported="true"
-            android:label="CamYan Settings" />
+            android:label="CamYan">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+
+        <!-- Если MainActivity есть в коде, оставляем её без launcher-фильтра -->
+        <activity
+            android:name="com.gaba.eskukap.ui.MainActivity"
+            android:exported="false" />
 
         <provider
             android:name="com.gaba.eskukap.provider.FakePhotoProvider"
@@ -22,7 +49,11 @@
         <meta-data android:name="xposedmodule" android:value="true"/>
         <meta-data android:name="xposeddescription" android:value="CamYan LSPosed Module"/>
         <meta-data android:name="xposedminversion" android:value="82"/>
-        <meta-data android:name="xposedsettings" android:value="com.gaba.eskukap.ui.CamYanSettingsActivity"/>
+
+        <!-- LSPosed settings marker -->
+        <meta-data
+            android:name="xposedsettings"
+            android:value="com.gaba.eskukap.ui.CamYanSettingsActivity" />
     </application>
 
 </manifest>
