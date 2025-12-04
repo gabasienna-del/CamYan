@@ -4,6 +4,7 @@ plugins {
 
 android {
     compileSdk 34
+    namespace "com.gaba.eskukap"
 
     defaultConfig {
         applicationId "com.gaba.eskukap"
@@ -11,24 +12,19 @@ android {
         targetSdk 34
         versionCode 1
         versionName "1.0"
-        buildConfigField "String", "FAKE_PROVIDER", "\"fakephoto\""
     }
 
     buildFeatures {
-        buildConfig true     // <<< ВАЖНО
+        buildConfig true
         viewBinding true
     }
 
-    buildTypes {
-        release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-        }
+    packagingOptions {
+        exclude 'META-INF/*'
     }
-
-    namespace 'com.gaba.eskukap'
 }
 
 dependencies {
     implementation files('libs/api-82.jar')
+    compileOnly files('libs/xposed-api.jar')   // <<< важно! не встраиваем внутрь APK
 }
