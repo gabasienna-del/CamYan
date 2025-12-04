@@ -28,9 +28,9 @@ public class CamYanSettingsActivity extends Activity {
         preview = findViewById(R.id.img_preview);
 
         select.setOnClickListener(v -> {
-            Intent i = new Intent(Intent.ACTION_GET_CONTENT);
-            i.setType("image/*");
-            startActivityForResult(i, PICK_IMAGE);
+            Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+            intent.setType("image/*");
+            startActivityForResult(Intent.createChooser(intent, "Выберите фото"), PICK_IMAGE);
         });
     }
 
@@ -46,7 +46,8 @@ public class CamYanSettingsActivity extends Activity {
                     preview.setImageBitmap(BitmapFactory.decodeStream(is));
                     is.close();
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
         }
     }
 }
