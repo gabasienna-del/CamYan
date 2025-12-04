@@ -8,8 +8,6 @@ import android.os.Bundle;
 import android.widget.Button;
 import android.widget.ImageView;
 
-import androidx.annotation.Nullable;
-
 import com.gaba.eskukap.R;
 
 import java.io.InputStream;
@@ -35,7 +33,7 @@ public class CamYanSettingsActivity extends Activity {
     }
 
     @Override
-    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == PICK_IMAGE && resultCode == RESULT_OK && data != null) {
             Uri uri = data.getData();

@@ -2,72 +2,66 @@ package com.gaba.eskukap.provider;
 
 import android.content.ContentProvider;
 import android.content.ContentValues;
+import android.content.UriMatcher;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
+import com.gaba.eskukap.BuildConfig;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 
 public class FakePhotoProvider extends ContentProvider {
 
-    // Жёстко задаём authority, без BuildConfig
-    public static final String AUTHORITY = "com.gaba.eskukap.fakephoto";
-    public static final Uri CONTENT_URI =
-            Uri.parse("content://" + AUTHORITY + "/photo");
+    private static final String AUTHORITY = BuildConfig.APPLICATION_ID + ".fakephoto";
+    public static final Uri CONTENT_URI = Uri.parse("content://" + AUTHORITY + "/photo");
+
+    private static final int CODE_PHOTO = 1;
+    private static final UriMatcher URI_MATCHER = new UriMatcher(UriMatcher.NO_MATCH);
+
+    static {
+        URI_MATCHER.addURI(AUTHORITY, "photo", CODE_PHOTO);
+    }
 
     @Override
     public boolean onCreate() {
+        // Ничего не инициализируем, просто возвращаем true
         return true;
     }
 
-    @Nullable
     @Override
-    public Cursor query(@NonNull Uri uri, String[] projection,
-                        String selection, String[] selectionArgs,
-                        String sortOrder) {
-        return null;
-    }
-
-    @Nullable
-    @Override
-    public String getType(@NonNull Uri uri) {
+    public String getType(Uri uri) {
+        // Всегда отдаём JPEG
         return "image/jpeg";
     }
 
-    @Nullable
     @Override
-    public Uri insert(@NonNull Uri uri, ContentValues values) {
+    public Cursor query(Uri uri, String[] projection, String selection,
+                        String[] selectionArgs, String sortOrder) {
+        // Пока не реализуем, модулю это не нужно
         return null;
     }
 
     @Override
-    public int delete(@NonNull Uri uri, String selection,
+    public Uri insert(Uri uri, ContentValues values) {
+        return null;
+    }
+
+    @Override
+    public int delete(Uri uri, String selection, String[] selectionArgs) {
+        return 0;
+    }
+
+    @Override
+    public int update(Uri uri, ContentValues values, String selection,
                       String[] selectionArgs) {
         return 0;
     }
 
     @Override
-    public int update(@NonNull Uri uri, ContentValues values,
-                      String selection, String[] selectionArgs) {
-        return 0;
-    }
-
-    @Nullable
-    @Override
-    public ParcelFileDescriptor openFile(@NonNull Uri uri,
-                                         @NonNull String mode)
-            throws FileNotFoundException {
-
-        // Тестовый файл fake.jpg в internal storage приложения
-        File fake = new File(getContext().getFilesDir(), "fake.jpg");
-        if (!fake.exists()) {
-            throw new FileNotFoundException("fake.jpg not found");
-        }
-        return ParcelFileDescriptor.open(fake,
-                ParcelFileDescriptor.MODE_READ_ONLY);
+    public ParcelFileDescriptor openFile(Uri uri, String mode) throws FileNotFoundException {
+        // Заглушка: файл не найден. Позже сюда подставим реальное фото.
+        throw new FileNotFoundException("No fake photo yet");
     }
 }
