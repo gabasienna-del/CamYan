@@ -33,5 +33,5 @@ dependencies {
     implementation 'androidx.preference:preference:1.2.1'
 
     // LSPosed API jar
-    implementation files('libs/api-82.jar')
+    compileOnly files('libs/api-82.jar')
 }
