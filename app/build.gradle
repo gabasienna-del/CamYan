@@ -3,8 +3,8 @@ plugins {
 }
 
 android {
-    compileSdk 34
     namespace "com.gaba.eskukap"
+    compileSdk 34
 
     defaultConfig {
         applicationId "com.gaba.eskukap"
@@ -14,17 +14,11 @@ android {
         versionName "1.0"
     }
 
-    buildFeatures {
-        buildConfig true
-        viewBinding true
-    }
-
-    packagingOptions {
-        exclude 'META-INF/*'
+    buildTypes {
+        release { minifyEnabled false }
     }
 }
 
 dependencies {
-    implementation files('libs/api-82.jar')
-    compileOnly files('libs/xposed-api.jar')   // <<< важно! не встраиваем внутрь APK
+    implementation 'de.robv.android.xposed:api:82'   // правильный способ
 }

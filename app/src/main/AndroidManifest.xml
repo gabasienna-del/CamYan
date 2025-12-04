@@ -8,12 +8,14 @@
         android:icon="@mipmap/ic_launcher"
         android:theme="@style/Theme.AppCompat.Light.NoActionBar">
 
-        <!-- LSPosed / Xposed -->
+        <!-- LSPosed/Xposed -->
         <meta-data android:name="xposedmodule" android:value="true"/>
-        <meta-data android:name="xposeddescription" android:value="CamYan Fake Camera Module"/>
+        <meta-data android:name="xposeddescription" android:value="CamYan Fake Camera"/>
         <meta-data android:name="xposedminversion" android:value="93"/>
 
-        <activity android:name=".ui.CamYanSettingsActivity">
+        <activity
+            android:name=".ui.CamYanSettingsActivity"
+            android:exported="true">     <!-- ВАЖНО -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
