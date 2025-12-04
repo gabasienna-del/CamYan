@@ -1,29 +1,31 @@
 package com.gaba.eskukap.provider;
 
-import android.content.ContentProvider;
-import android.content.ContentValues;
-import android.content.UriMatcher;
+import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
-import android.os.ParcelFileDescriptor;
-import com.gaba.eskukap.BuildConfig;   // MUST EXIST after fix
+import android.provider.MediaStore;
+import androidx.annotation.Nullable;
 
-import java.io.FileNotFoundException;
+// ВАЖНО: BuildConfig импорт
+import com.gaba.eskukap.BuildConfig;
 
-public class FakePhotoProvider extends ContentProvider {
+public class FakePhotoProvider {
 
     private static final String AUTHORITY = BuildConfig.APPLICATION_ID + ".fakephoto";
-    public static final Uri CONTENT_URI = Uri.parse("content://" + AUTHORITY + "/photo");
 
-    @Override public boolean onCreate() { return true; }
-    @Override public String getType(Uri uri){ return "image/jpeg"; }
-    @Override public Cursor query(Uri u,String[] p,String s,String[] a,String o){ return null; }
-    @Override public Uri insert(Uri u, ContentValues v){ return null; }
-    @Override public int delete(Uri u,String s,String[] a){ return 0; }
-    @Override public int update(Uri u,ContentValues v,String s,String[] a){ return 0; }
+    @Nullable
+    public static Uri getFakeImage(Context context) {
+        Cursor cursor = context.getContentResolver().query(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                new String[]{MediaStore.Images.Media._ID},
+                null,null,null
+        );
 
-    @Override
-    public ParcelFileDescriptor openFile(Uri uri, String mode) throws FileNotFoundException {
-        throw new FileNotFoundException("Fake photo not implemented yet");
+        if (cursor != null && cursor.moveToFirst()) {
+            long id = cursor.getLong(0);
+            cursor.close();
+            return Uri.withAppendedPath(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, String.valueOf(id));
+        }
+        return null;
     }
 }
