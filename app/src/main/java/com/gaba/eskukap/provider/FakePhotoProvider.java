@@ -7,9 +7,8 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
 
-import com.gaba.eskukap.BuildConfig;
+import com.gaba.eskukap.BuildConfig;   // <<< ВАЖНЫЙ ИМПОРТ
 
-import java.io.File;
 import java.io.FileNotFoundException;
 
 public class FakePhotoProvider extends ContentProvider {
@@ -26,20 +25,17 @@ public class FakePhotoProvider extends ContentProvider {
 
     @Override
     public boolean onCreate() {
-        // Ничего не инициализируем, просто возвращаем true
         return true;
     }
 
     @Override
     public String getType(Uri uri) {
-        // Всегда отдаём JPEG
         return "image/jpeg";
     }
 
     @Override
     public Cursor query(Uri uri, String[] projection, String selection,
                         String[] selectionArgs, String sortOrder) {
-        // Пока не реализуем, модулю это не нужно
         return null;
     }
 
@@ -54,14 +50,12 @@ public class FakePhotoProvider extends ContentProvider {
     }
 
     @Override
-    public int update(Uri uri, ContentValues values, String selection,
-                      String[] selectionArgs) {
+    public int update(Uri uri, ContentValues values, String selection, String[] selectionArgs) {
         return 0;
     }
 
     @Override
     public ParcelFileDescriptor openFile(Uri uri, String mode) throws FileNotFoundException {
-        // Заглушка: файл не найден. Позже сюда подставим реальное фото.
-        throw new FileNotFoundException("No fake photo yet");
+        throw new FileNotFoundException("Fake image not implemented yet");
     }
 }
