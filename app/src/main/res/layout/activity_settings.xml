@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:gravity="center_horizontal"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <Button
+        android:id="@+id/btn_select"
+        android:text="Выбрать фото из галереи"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+
+    <ImageView
+        android:id="@+id/img_preview"
+        android:layout_width="300dp"
+        android:layout_height="300dp"
+        android:layout_marginTop="16dp"
+        android:scaleType="centerCrop"
+        android:background="#CCCCCC"/>
+
+    <Button
+        android:id="@+id/btn_start"
+        android:text="СТАРТ"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"/>
+
+    <Button
+        android:id="@+id/btn_stop"
+        android:text="СТОП"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"/>
+
+</LinearLayout>
