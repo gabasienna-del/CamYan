@@ -1,39 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:orientation="vertical"
+    android:padding="24dp"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:padding="12dp">
+    android:layout_height="match_parent">
 
-    <TextView
-        android:id="@+id/title"
+    <Button
+        android:id="@+id/btn_pick"
+        android:text="Выбрать фото из галереи"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="CamYan настройки"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:paddingBottom="8dp" />
+        android:layout_height="wrap_content"/>
 
     <ImageView
-        android:id="@+id/imagePreview"
+        android:id="@+id/img_preview"
+        android:layout_marginTop="16dp"
         android:layout_width="match_parent"
-        android:layout_height="200dp"
-        android:adjustViewBounds="true"
-        android:scaleType="centerCrop"
-        android:background="#22000000" />
+        android:layout_height="250dp"
+        android:background="#DADADA"
+        android:scaleType="centerCrop"/>
 
     <TextView
-        android:id="@+id/imageInfo"
+        android:id="@+id/tv_status"
+        android:layout_marginTop="10dp"
+        android:text="Фото не выбрано"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Фейковое фото не выбрано"
-        android:paddingTop="4dp"
-        android:paddingBottom="8dp" />
+        android:layout_height="wrap_content"/>
 
-    <FrameLayout
-        android:id="@+id/settings_container"
+    <Button
+        android:id="@+id/btn_save"
+        android:text="Сохранить"
+        android:layout_marginTop="16dp"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1" />
+        android:layout_height="wrap_content"/>
 
 </LinearLayout>
