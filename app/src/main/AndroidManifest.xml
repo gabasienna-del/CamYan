@@ -16,14 +16,25 @@
         android:label="CamYan"
         android:theme="@style/AppTheme">
 
-        <!-- Наш фейковый провайдер фото -->
+        <!-- Xposed meta-data: по ним LSPosed видит модуль -->
+        <meta-data
+            android:name="xposedmodule"
+            android:value="true" />
+        <meta-data
+            android:name="xposeddescription"
+            android:value="CamYan selfie helper" />
+        <meta-data
+            android:name="xposedminversion"
+            android:value="93" />
+
+        <!-- наш фейковый провайдер фото -->
         <provider
             android:name=".provider.FakePhotoProvider"
             android:authorities="com.gaba.eskukap.fakephoto"
             android:exported="true"
             android:grantUriPermissions="true" />
 
-        <!-- Настройки модуля -->
+        <!-- экран настроек модуля -->
         <activity
             android:name=".ui.CamYanSettingsActivity"
             android:theme="@style/AppTheme" />
