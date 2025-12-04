@@ -2,49 +2,39 @@ package com.gaba.eskukap.provider;
 
 import android.content.ContentProvider;
 import android.content.ContentValues;
-import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
-import android.provider.MediaStore;
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.NonNull;
 
 public class FakePhotoProvider extends ContentProvider {
+
+    public static final String AUTHORITY = "com.gaba.eskukap.fakephoto";
+    public static final Uri CONTENT_URI = Uri.parse("content://" + AUTHORITY + "/image");
 
     @Override
     public boolean onCreate() {
         return true;
     }
 
-    @Nullable
-    @Override
-    public Cursor query(@NonNull Uri uri, @Nullable String[] projection,
-                        @Nullable String selection, @Nullable String[] selectionArgs,
-                        @Nullable String sortOrder) {
-        return null; // пока пусто, позже дадим возврат на фейл-фото
+    @Nullable @Override
+    public Cursor query(@NonNull Uri uri, String[] projection, String selection,
+                        String[] selectionArgs, String sortOrder) {
+        return null; // позже заменим на выдачу выбранной картинки
     }
 
-    @Nullable
-    @Override
+    @Nullable @Override
     public String getType(@NonNull Uri uri) {
         return "image/jpeg";
     }
 
-    @Nullable
-    @Override
-    public Uri insert(@NonNull Uri uri, @Nullable ContentValues values) {
-        return null;
-    }
+    @Nullable @Override
+    public Uri insert(@NonNull Uri uri, ContentValues values) { return null; }
 
     @Override
-    public int delete(@NonNull Uri uri, @Nullable String selection,
-                      @Nullable String[] selectionArgs) {
-        return 0;
-    }
+    public int delete(@NonNull Uri uri, String selection, String[] selectionArgs) { return 0; }
 
     @Override
-    public int update(@NonNull Uri uri, @Nullable ContentValues values,
-                      @Nullable String selection, @Nullable String[] selectionArgs) {
-        return 0;
-    }
+    public int update(@NonNull Uri uri, ContentValues values,
+                      String selection, String[] selectionArgs) { return 0; }
 }
