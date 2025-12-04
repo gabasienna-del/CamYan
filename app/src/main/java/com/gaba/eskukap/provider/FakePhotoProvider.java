@@ -1,30 +1,25 @@
 package com.gaba.eskukap.provider;
 
 import android.content.Context;
-import android.database.Cursor;
+import android.content.SharedPreferences;
 import android.net.Uri;
-import android.provider.MediaStore;
-import androidx.annotation.Nullable;
 
-// ВАЖНО: BuildConfig импорт
-import com.gaba.eskukap.BuildConfig;
+import androidx.annotation.Nullable;
+import androidx.preference.PreferenceManager;
 
 public class FakePhotoProvider {
 
-    private static final String AUTHORITY = BuildConfig.APPLICATION_ID + ".fakephoto";
+    private static final String PREF_KEY_URI = "fake_photo_uri";
 
     @Nullable
     public static Uri getFakeImage(Context context) {
-        Cursor cursor = context.getContentResolver().query(
-                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                new String[]{MediaStore.Images.Media._ID},
-                null,null,null
-        );
-
-        if (cursor != null && cursor.moveToFirst()) {
-            long id = cursor.getLong(0);
-            cursor.close();
-            return Uri.withAppendedPath(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, String.valueOf(id));
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        String uriStr = prefs.getString(PREF_KEY_URI, null);
+        if (uriStr != null && !uriStr.isEmpty()) {
+            try {
+                return Uri.parse(uriStr);
+            } catch (Exception ignored) {
+            }
         }
         return null;
     }
