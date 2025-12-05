@@ -13,13 +13,13 @@ public class CamYanHook implements IXposedHookLoadPackage {
     @Override
     public void handleLoadPackage(final XC_LoadPackage.LoadPackageParam lpparam) throws Throwable {
 
-        // Чтобы не спамить в системные процессы
+        // Системные процессы пропускаем
         if (lpparam.packageName.equals("android")
                 || lpparam.packageName.equals("com.android.systemui")) {
             return;
         }
 
-        // 1) Пытаемся хукнуть старую android.hardware.Camera
+        // 1) Пробуем старый android.hardware.Camera
         try {
             XposedBridge.log("CamYan: try hook android.hardware.Camera in " + lpparam.packageName);
 
@@ -46,7 +46,7 @@ public class CamYanHook implements IXposedHookLoadPackage {
             XposedBridge.log("CamYan: no android.hardware.Camera in " + lpparam.packageName + " : " + t.getMessage());
         }
 
-        // 2) Пытаемся хукнуть Camera2: CameraManager.openCamera(...)
+        // 2) Пробуем Camera2 (CameraManager.openCamera)
         try {
             XposedBridge.log("CamYan: try hook Camera2 in " + lpparam.packageName);
 
