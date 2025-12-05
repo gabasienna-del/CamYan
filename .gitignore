@@ -1,15 +1,8 @@
-/.gradle/
-/build/
-/app/build/
-/app/libs/
-/local.properties
+/gradle/
 /.idea/
-
-/alphav1-src/
-/jadx/
-/*.jar
+/app/build/
+/build/
 *.apk
 *.zip
-
-# не игнорировать wrapper!
-!gradle/wrapper/gradle-wrapper.jar
+local.properties
+# Удалили libs jar из ignore!
