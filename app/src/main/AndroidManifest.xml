@@ -1,35 +1,36 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.gaba.eskukap">
 
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+    <!-- Разрешения на доступ к фото и камере -->
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
 
     <application
         android:allowBackup="true"
-        android:label="CamYan Module"
-        android:supportsRtl="true"
-        android:icon="@mipmap/ic_launcher">
+        android:label="CamYan"
+        android:theme="@android:style/Theme.Material.Light">
 
-        <activity android:name=".ui.CamYanSettingsActivity"
-            android:exported="true">
+        <activity android:name=".ui.CamYanSettingsActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
 
+        <!-- FileProvider (для чтения/подмены/сохранения фото) -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="com.gaba.eskukap.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
+
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"/>
         </provider>
 
     </application>
-
 </manifest>
