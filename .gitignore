@@ -1,15 +1,15 @@
-# Gradle / IDE
-.gradle/
-local.properties
-/.idea/
-/app/build/
+/.gradle/
 /build/
+/app/build/
+/app/libs/
+/local.properties
+/.idea/
 
-# Реверс и временные
-/jadx/
 /alphav1-src/
+/jadx/
+/*.jar
 *.apk
 *.zip
 
-# ВАЖНО: НЕ игнорировать Gradle wrapper jar
+# не игнорировать wrapper!
 !gradle/wrapper/gradle-wrapper.jar
