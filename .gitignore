@@ -4,3 +4,7 @@ jadx/
 alphav1-src/
 Alphav1.apk
 jadx-1.5.0.zip
+alphav1-src/
+*.apk
+*.zip
+*.jar
