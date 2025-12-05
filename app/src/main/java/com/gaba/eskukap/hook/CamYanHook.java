@@ -1,111 +1,119 @@
 package com.gaba.eskukap.hook;
 
 import android.hardware.Camera;
-import android.hardware.camera2.*;
-import android.media.Image;
-import android.media.ImageReader;
-import android.os.Environment;
+import android.hardware.camera2.CameraManager;
+import android.hardware.camera2.CameraDevice;
+import android.hardware.camera2.CameraCaptureSession;
+import android.hardware.camera2.CaptureRequest;
+import android.os.Handler;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.nio.ByteBuffer;
-
-import de.robv.android.xposed.*;
+import de.robv.android.xposed.IXposedHookLoadPackage;
+import de.robv.android.xposed.XC_MethodHook;
+import de.robv.android.xposed.XposedBridge;
+import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 public class CamYanHook implements IXposedHookLoadPackage {
 
+    private static final String TAG = "CamYan";
+
     @Override
     public void handleLoadPackage(final XC_LoadPackage.LoadPackageParam lpparam) throws Throwable {
-
-        // Лог запуска
-        XposedBridge.log("CamYan: loaded in " + lpparam.packageName);
-
-        // ---------------- Camera1 TakePicture ----------------
-        try {
-            XposedHelpers.findAndHookMethod(
-                "android.hardware.Camera",
-                lpparam.classLoader,
-                "takePicture",
-                Camera.ShutterCallback.class,
-                Camera.PictureCallback.class,
-                Camera.PictureCallback.class,
-                new XC_MethodHook() {
-                    @Override
-                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                        XposedBridge.log("CamYan: Camera1 takePicture AFTER");
-                    }
-                }
-            );
-        } catch (Throwable e) {
-            XposedBridge.log("CamYan ERR Camera1: " + e.getMessage());
+        // Целевые приложения
+        if (!"com.vkontakte.android".equals(lpparam.packageName)
+                && !"ru.yandex.taximeter".equals(lpparam.packageName)) {
+            return;
         }
 
-        // ---------------- Camera2 Capture ----------------
-        try {
-            XposedHelpers.findAndHookMethod(
-                "android.hardware.camera2.CameraCaptureSession",
-                lpparam.classLoader,
-                "capture",
-                CaptureRequest.class,
-                CaptureCallback.class,
-                Handler.class,
-                new XC_MethodHook() {
-                    @Override
-                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                        XposedBridge.log("CamYan: Camera2 capture AFTER");
-                    }
-                }
-            );
-        } catch (Throwable e) {
-            XposedBridge.log("CamYan ERR Camera2: " + e.getMessage());
-        }
+        XposedBridge.log(TAG + ": " + lpparam.packageName + " detected, applying camera hook...");
 
-        // Intercept JPEG through ImageReader
-        try {
-            XposedHelpers.findAndHookMethod(
-                "android.media.ImageReader",
-                lpparam.classLoader,
-                "newInstance",
-                int.class, int.class, int.class, int.class,
-                new XC_MethodReplacement() {
-                    @Override
-                    protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
-                        Object result = XposedBridge.invokeOriginalMethod(param.method, param.thisObject, param.args);
-
-                        XposedHelpers.findAndHookMethod(result.getClass(), "acquireLatestImage", new XC_MethodHook() {
-                            @Override
-                            protected void afterHookedMethod(MethodHookParam p) throws Throwable {
-                                Image img = (Image) p.getResult();
-                                if (img != null && img.getFormat() == 256) { // JPEG
-                                    saveImage(img);
-                                    XposedBridge.log("CamYan: JPEG intercepted and saved 🚀");
-                                }
-                            }
-                        });
-                        return result;
-                    }
-                }
-            );
-        } catch (Throwable e) { XposedBridge.log("CamYan Hook ImageReader ERR: " + e.getMessage()); }
+        hookLegacyCamera(lpparam);
+        hookCamera2Open(lpparam);
+        hookCamera2Capture(lpparam);
     }
 
-    private void saveImage(Image image) {
+    /** Хук старого API android.hardware.Camera */
+    private void hookLegacyCamera(final XC_LoadPackage.LoadPackageParam lpparam) {
         try {
-            File f = new File(Environment.getExternalStorageDirectory() + "/CamYan/last.jpg");
-            f.getParentFile().mkdirs();
+            XposedHelpers.findAndHookMethod(
+                    "android.hardware.Camera",
+                    lpparam.classLoader,
+                    "takePicture",
+                    Camera.ShutterCallback.class,
+                    Camera.PictureCallback.class,
+                    Camera.PictureCallback.class,
+                    new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                            XposedBridge.log(TAG + ": Camera.takePicture BEFORE in " + lpparam.packageName);
+                        }
 
-            ByteBuffer buffer = image.getPlanes()[0].getBuffer();
-            byte[] bytes = new byte[buffer.remaining()];
-            buffer.get(bytes);
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                            XposedBridge.log(TAG + ": Camera.takePicture AFTER in " + lpparam.packageName);
+                        }
+                    }
+            );
+        } catch (Throwable t) {
+            XposedBridge.log(TAG + ": no legacy Camera in " + lpparam.packageName + " : " + t.getMessage());
+        }
+    }
 
-            FileOutputStream fos = new FileOutputStream(f);
-            fos.write(bytes);
-            fos.close();
+    /** Хук открытия камеры Camera2: CameraManager.openCamera */
+    private void hookCamera2Open(final XC_LoadPackage.LoadPackageParam lpparam) {
+        try {
+            XposedHelpers.findAndHookMethod(
+                    "android.hardware.camera2.CameraManager",
+                    lpparam.classLoader,
+                    "openCamera",
+                    String.class,
+                    CameraDevice.StateCallback.class,
+                    Handler.class,
+                    new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                            XposedBridge.log(TAG + ": " + lpparam.packageName
+                                    + " -> CameraManager.openCamera BEFORE");
+                        }
 
-            XposedBridge.log("CamYan: saved → " + f.getAbsolutePath());
-        } catch (Exception e) {
-            XposedBridge.log("CamYan Save ERR: " + e.getMessage());
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                            XposedBridge.log(TAG + ": " + lpparam.packageName
+                                    + " -> CameraManager.openCamera AFTER");
+                        }
+                    }
+            );
+        } catch (Throwable t) {
+            XposedBridge.log(TAG + ": no CameraManager.openCamera in "
+                    + lpparam.packageName + " : " + t.getMessage());
+        }
+    }
+
+    /** Хук съёмки в Camera2: CameraCaptureSession.capture */
+    private void hookCamera2Capture(final XC_LoadPackage.LoadPackageParam lpparam) {
+        try {
+            XposedHelpers.findAndHookMethod(
+                    "android.hardware.camera2.CameraCaptureSession",
+                    lpparam.classLoader,
+                    "capture",
+                    CaptureRequest.class,
+                    CameraCaptureSession.CaptureCallback.class,
+                    Handler.class,
+                    new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                            XposedBridge.log(TAG + ": Camera2 capture BEFORE in " + lpparam.packageName);
+                        }
+
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                            XposedBridge.log(TAG + ": Camera2 capture AFTER in " + lpparam.packageName);
+                        }
+                    }
+            );
+        } catch (Throwable t) {
+            XposedBridge.log(TAG + ": no CameraCaptureSession.capture in "
+                    + lpparam.packageName + " : " + t.getMessage());
         }
     }
 }
