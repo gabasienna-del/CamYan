@@ -10,7 +10,7 @@
     <application
         android:allowBackup="true"
         android:label="CamYan"
-        android:theme="@style/Theme.Material3.Light.NoActionBar">
+        android:theme="@android:style/Theme.Material.Light.NoActionBar">
 
         <!-- Настройки модуля -->
         <activity
@@ -22,7 +22,7 @@
             </intent-filter>
         </activity>
 
-        <!-- FileProvider (для чтения/подмены файлов фото) -->
+        <!-- FileProvider -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="com.gaba.eskukap.fileprovider"
