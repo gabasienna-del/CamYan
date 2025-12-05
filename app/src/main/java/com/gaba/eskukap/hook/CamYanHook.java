@@ -2,9 +2,6 @@ package com.gaba.eskukap.hook;
 
 import android.hardware.Camera;
 
-import java.util.Arrays;
-import java.util.List;
-
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
@@ -13,43 +10,65 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 public class CamYanHook implements IXposedHookLoadPackage {
 
-    private static final List<String> TARGET_PACKAGES = Arrays.asList(
-            "com.vkontakte.android",
-            "org.telegram.messenger",
-            "com.whatsapp",
-            "com.instagram.android",
-            "com.google.android.GoogleCamera",
-            "com.sec.android.app.camera"   // стандартная камера Samsung
-            // сюда можно добавлять свои пакеты
-    );
-
     @Override
-    public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) throws Throwable {
+    public void handleLoadPackage(final XC_LoadPackage.LoadPackageParam lpparam) throws Throwable {
 
-        if (!TARGET_PACKAGES.contains(lpparam.packageName)) {
-            return; // остальные приложения не трогаем
+        // Чтобы не спамить в системные процессы
+        if (lpparam.packageName.equals("android")
+                || lpparam.packageName.equals("com.android.systemui")) {
+            return;
         }
 
-        XposedBridge.log("CamYan: " + lpparam.packageName + " detected, applying camera hook...");
+        // 1) Пытаемся хукнуть старую android.hardware.Camera
+        try {
+            XposedBridge.log("CamYan: try hook android.hardware.Camera in " + lpparam.packageName);
 
-        XposedHelpers.findAndHookMethod(
-                "android.hardware.Camera",
-                lpparam.classLoader,
-                "takePicture",
-                Camera.ShutterCallback.class,
-                Camera.PictureCallback.class,
-                Camera.PictureCallback.class,
-                new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                        XposedBridge.log("CamYan: " + lpparam.packageName + " takePicture BEFORE");
-                    }
+            XposedHelpers.findAndHookMethod(
+                    "android.hardware.Camera",
+                    lpparam.classLoader,
+                    "takePicture",
+                    Camera.ShutterCallback.class,
+                    Camera.PictureCallback.class,
+                    Camera.PictureCallback.class,
+                    new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                            XposedBridge.log("CamYan: " + lpparam.packageName + " -> Camera.takePicture BEFORE");
+                        }
 
-                    @Override
-                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                        XposedBridge.log("CamYan: " + lpparam.packageName + " takePicture AFTER");
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                            XposedBridge.log("CamYan: " + lpparam.packageName + " -> Camera.takePicture AFTER");
+                        }
                     }
+            );
+        } catch (Throwable t) {
+            XposedBridge.log("CamYan: no android.hardware.Camera in " + lpparam.packageName + " : " + t.getMessage());
+        }
+
+        // 2) Пытаемся хукнуть Camera2: CameraManager.openCamera(...)
+        try {
+            XposedBridge.log("CamYan: try hook Camera2 in " + lpparam.packageName);
+
+            Class<?> camManagerClass = XposedHelpers.findClass(
+                    "android.hardware.camera2.CameraManager",
+                    lpparam.classLoader
+            );
+
+            XposedBridge.hookAllMethods(camManagerClass, "openCamera", new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    XposedBridge.log("CamYan: " + lpparam.packageName + " -> CameraManager.openCamera BEFORE");
                 }
-        );
+
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    XposedBridge.log("CamYan: " + lpparam.packageName + " -> CameraManager.openCamera AFTER");
+                }
+            });
+
+        } catch (Throwable t) {
+            XposedBridge.log("CamYan: no Camera2 in " + lpparam.packageName + " : " + t.getMessage());
+        }
     }
 }
