@@ -6,3 +6,4 @@
 *.zip
 local.properties
 # Удалили libs jar из ignore!
+BIGFILE
