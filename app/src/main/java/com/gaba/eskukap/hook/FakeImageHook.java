@@ -14,15 +14,22 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 public class FakeImageHook {
 
-    // Путь, куда SettingsActivity кладёт картинку
+    private static final String PKG_VK = "com.vkontakte.android";
+    private static final String PKG_TAXI = "ru.yandex.taximeter";
+
+    // Куда SettingsActivity кладёт картинку:
     private static final String FAKE_PATH =
             "/storage/emulated/0/Pictures/CamYan/fake.jpg";
 
     public static void init(final XC_LoadPackage.LoadPackageParam lpparam) {
 
-        if (!lpparam.packageName.equals("com.vkontakte.android")) return;
+        String pkg = lpparam.packageName;
 
-        XposedBridge.log("FakeImageHook: VK detected, hooking ImageReader");
+        if (!PKG_VK.equals(pkg) && !PKG_TAXI.equals(pkg)) {
+            return;
+        }
+
+        XposedBridge.log("FakeImageHook: " + pkg + " detected, hooking ImageReader");
 
         try {
             XposedHelpers.findAndHookConstructor(
@@ -33,7 +40,7 @@ public class FakeImageHook {
                         protected void afterHookedMethod(MethodHookParam param) {
                             ImageReader reader = (ImageReader) param.thisObject;
 
-                            XposedBridge.log("FakeImageHook: ImageReader created, attaching listener");
+                            XposedBridge.log("FakeImageHook: " + pkg + " ImageReader created, attaching listener");
 
                             reader.setOnImageAvailableListener(imgReader -> {
                                 Image image = null;
@@ -55,14 +62,14 @@ public class FakeImageHook {
                                         if (bytes != null && bytes.length <= buffer.capacity()) {
                                             buffer.rewind();
                                             buffer.put(bytes);
-                                            XposedBridge.log("FakeImageHook: IMAGE OVERRIDDEN SUCCESS");
+                                            XposedBridge.log("FakeImageHook: IMAGE OVERRIDDEN SUCCESS (" + pkg + ")");
                                         } else {
-                                            XposedBridge.log("FakeImageHook: buffer too small for fake image");
+                                            XposedBridge.log("FakeImageHook: buffer too small for fake image (" + pkg + ")");
                                         }
                                     }
 
                                 } catch (Throwable e) {
-                                    XposedBridge.log("FakeImageHook ERROR: " + e);
+                                    XposedBridge.log("FakeImageHook ERROR (" + pkg + "): " + e);
                                 } finally {
                                     if (image != null) image.close();
                                 }
@@ -71,7 +78,7 @@ public class FakeImageHook {
                     });
 
         } catch (Throwable e) {
-            XposedBridge.log("FakeImageHook FAIL: " + e);
+            XposedBridge.log("FakeImageHook FAIL (" + pkg + "): " + e);
         }
     }
 
