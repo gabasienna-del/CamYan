@@ -10,7 +10,7 @@
     <application
         android:allowBackup="true"
         android:label="CamYan"
-        android:theme="@style/Theme.MaterialLight.NoActionBar">
+        android:theme="@style/Theme.CamYan">
 
         <activity
             android:name=".ui.CamYanSettingsActivity"
@@ -21,19 +21,20 @@
             </intent-filter>
         </activity>
 
-        <!-- Xposed module meta -->
+        <!-- Xposed meta -->
         <meta-data android:name="xposedmodule" android:value="true"/>
         <meta-data android:name="xposeddescription" android:value="CamYan Camera Hook"/>
         <meta-data android:name="xposedminversion" android:value="93"/>
 
-        <!-- File provider -->
+        <!-- FileProvider для подмены/чтения фото -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="com.gaba.eskukap.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
-            <meta-data android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths"/>
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
         </provider>
 
     </application>
