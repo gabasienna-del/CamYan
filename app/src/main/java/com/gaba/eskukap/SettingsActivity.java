@@ -1,6 +1,7 @@
 package com.gaba.eskukap;
 
 import android.app.Activity;
+import android.content.ContentValues;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -11,13 +12,14 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.io.OutputStream;
 
 public class SettingsActivity extends Activity {
 
     private static final int PICK = 101;
+    // Итоговый путь, с которым работает хук:
+    // /storage/emulated/0/Pictures/CamYan/fake.jpg
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -28,7 +30,7 @@ public class SettingsActivity extends Activity {
         layout.setGravity(Gravity.CENTER);
 
         Button btn = new Button(this);
-        btn.setText("Выбрать фото (fake.jpg)");
+        btn.setText("ВЫБРАТЬ ФОТО (FAKE.JPG)");
 
         btn.setOnClickListener(v -> pick());
 
@@ -50,24 +52,49 @@ public class SettingsActivity extends Activity {
     protected void onActivityResult(int rq, int res, Intent data) {
         super.onActivityResult(rq, res, data);
         if (rq == PICK && res == RESULT_OK && data != null && data.getData() != null) {
-            save(data.getData());
+            saveToPictures(data.getData());
         }
     }
 
-    private void save(Uri u) {
+    private void saveToPictures(Uri src) {
         try {
-            File out = new File(Environment.getExternalStorageDirectory(), "fake.jpg");
-            InputStream in = getContentResolver().openInputStream(u);
-            FileOutputStream o = new FileOutputStream(out);
+            // создаём/перезаписываем картинку в Pictures/CamYan/fake.jpg
+            ContentValues values = new ContentValues();
+            values.put(MediaStore.Images.Media.DISPLAY_NAME, "fake.jpg");
+            values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
+            values.put(MediaStore.Images.Media.RELATIVE_PATH,
+                    Environment.DIRECTORY_PICTURES + "/CamYan");
 
-            byte[] b = new byte[4096];
+            Uri dst = getContentResolver().insert(
+                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+
+            if (dst == null) {
+                Toast.makeText(this, "Не удалось создать файл в Pictures", Toast.LENGTH_LONG).show();
+                return;
+            }
+
+            InputStream in = getContentResolver().openInputStream(src);
+            OutputStream out = getContentResolver().openOutputStream(dst, "w");
+
+            if (in == null || out == null) {
+                Toast.makeText(this, "Ошибка доступа к файлам", Toast.LENGTH_LONG).show();
+                if (in != null) in.close();
+                if (out != null) out.close();
+                return;
+            }
+
+            byte[] buf = new byte[4096];
             int n;
-            while ((n = in.read(b)) > 0) o.write(b, 0, n);
-
+            while ((n = in.read(buf)) > 0) {
+                out.write(buf, 0, n);
+            }
             in.close();
-            o.close();
+            out.flush();
+            out.close();
 
-            Toast.makeText(this, "Сохранено в /sdcard/fake.jpg", Toast.LENGTH_LONG).show();
+            Toast.makeText(this,
+                    "Сохранено в Pictures/CamYan/fake.jpg",
+                    Toast.LENGTH_LONG).show();
 
         } catch (Exception e) {
             Toast.makeText(this, "Ошибка: " + e, Toast.LENGTH_LONG).show();
