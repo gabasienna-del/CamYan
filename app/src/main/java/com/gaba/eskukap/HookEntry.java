@@ -4,6 +4,7 @@ import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CameraDevice;
 import android.media.ImageReader;
 import android.media.Image;
+import android.util.Log;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
@@ -65,25 +66,28 @@ public class HookEntry implements IXposedHookLoadPackage {
             XposedBridge.log("EskukapHook CAMERA2 CaptureCallback HOOK ERROR: " + e);
         }
 
-        // ---- 3. CameraX: Analyzer.analyze(ImageProxy) ----
-        // ВАЖНО: используем имена классов строками, чтобы не тянуть androidx зависимость в модуль
+        // ---- 3. CameraX: Analyzer.analyze(ImageProxy) (твоя версия через findClass + Log) ----
         try {
-            XposedHelpers.findAndHookMethod(
+            Class<?> analyzer = XposedHelpers.findClass(
                     "androidx.camera.core.ImageAnalysis$Analyzer",
-                    lpparam.classLoader,
+                    lpparam.classLoader
+            );
+
+            XposedHelpers.findAndHookMethod(
+                    analyzer,
                     "analyze",
                     "androidx.camera.core.ImageProxy",
                     new XC_MethodHook() {
                         @Override
-                        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                            Object imageProxy = param.args[0];
-                            // Тут YUV кадр CameraX
-                            XposedBridge.log("EskukapHook: CameraX analyze() frame -> " + imageProxy);
-                            // TODO: подмена содержимого через ImageProxy, если нужно
+                        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                            Log.i("EskukapHook", "CameraX Analyzer frame");
                         }
                     }
             );
+
+            XposedBridge.log("EskukapHook: CameraX Analyzer hook installed");
         } catch (Throwable e) {
+            Log.e("EskukapHook", "CAMERAX Analyzer HOOK ERROR: " + Log.getStackTraceString(e));
             XposedBridge.log("EskukapHook CAMERAX Analyzer HOOK ERROR: " + e);
         }
 
@@ -104,7 +108,7 @@ public class HookEntry implements IXposedHookLoadPackage {
 
                             XposedBridge.log("EskukapHook: MediaCodec.queueInputBuffer idx=" +
                                     index + " off=" + offset + " size=" + size + " pts=" + pts);
-                            // TODO: здесь можно менять содержимое ByteBuffer перед кодеком
+                            // TODO: тут можно менять содержимое ByteBuffer перед кодеком
                         }
                     }
             );
@@ -113,8 +117,6 @@ public class HookEntry implements IXposedHookLoadPackage {
         }
 
         // ---- 5. ImageReader: правильный хук кадров через acquireLatestImage() ----
-        // ТВОЙ ВАРИАНТ с ImageReader.onImageAvailable был неправильный — такого метода у ImageReader нет.
-        // Правильно цепляться к acquireLatestImage() или acquireNextImage().
         try {
             XposedHelpers.findAndHookMethod(
                     ImageReader.class,
