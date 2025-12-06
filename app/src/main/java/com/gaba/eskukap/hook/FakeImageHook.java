@@ -17,62 +17,63 @@ public class FakeImageHook {
     private static final String PKG_VK = "com.vkontakte.android";
     private static final String PKG_TAXI = "ru.yandex.taximeter";
 
+    // Куда SettingsActivity кладёт картинку
     private static final String FAKE_PATH =
             "/storage/emulated/0/Pictures/CamYan/fake.jpg";
 
     public static void init(final XC_LoadPackage.LoadPackageParam lpparam) {
 
-        String pkg = lpparam.packageName;
+        final String pkg = lpparam.packageName;
 
         if (!PKG_VK.equals(pkg) && !PKG_TAXI.equals(pkg)) return;
 
-        XposedBridge.log("FakeImageHook: " + pkg + " detected, hooking ImageReader");
+        XposedBridge.log("FakeImageHook: " + pkg + " detected, hookAllConstructors(ImageReader)");
 
         try {
-            // Перехватываем ВСЕ конструкторы ImageReader
-            XposedHelpers.findAndHookConstructor(
-                    ImageReader.class, new Object[]{XC_MethodHook.class},
-                    new XC_MethodHook() {
-                        @Override
-                        protected void afterHookedMethod(MethodHookParam param) {
-                            ImageReader reader = (ImageReader) param.thisObject;
+            Class<?> cls = XposedHelpers.findClass(
+                    "android.media.ImageReader", lpparam.classLoader);
 
-                            XposedBridge.log("FakeImageHook: " + pkg + " ImageReader created");
+            XposedBridge.hookAllConstructors(cls, new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) {
+                    final ImageReader reader = (ImageReader) param.thisObject;
 
-                            reader.setOnImageAvailableListener(imgReader -> {
-                                Image image = null;
-                                try {
-                                    image = imgReader.acquireLatestImage();
-                                    if (image == null) return;
+                    XposedBridge.log("FakeImageHook: " + pkg + " ImageReader created, attaching listener");
 
-                                    Bitmap fake = BitmapFactory.decodeFile(FAKE_PATH);
-                                    if (fake == null) {
-                                        XposedBridge.log("FakeImageHook: NO fake.jpg at " + FAKE_PATH);
-                                        return;
-                                    }
+                    reader.setOnImageAvailableListener(imgReader -> {
+                        Image image = null;
+                        try {
+                            image = imgReader.acquireLatestImage();
+                            if (image == null) return;
 
-                                    Image.Plane[] planes = image.getPlanes();
-                                    if (planes.length > 0) {
-                                        ByteBuffer buffer = planes[0].getBuffer();
-                                        byte[] bytes = bitmapToJpeg(fake);
+                            Bitmap fake = BitmapFactory.decodeFile(FAKE_PATH);
+                            if (fake == null) {
+                                XposedBridge.log("FakeImageHook: NO fake.jpg at " + FAKE_PATH);
+                                return;
+                            }
 
-                                        if (bytes != null && bytes.length <= buffer.capacity()) {
-                                            buffer.rewind();
-                                            buffer.put(bytes);
-                                            XposedBridge.log("FakeImageHook: IMAGE REPLACED OK in " + pkg);
-                                        } else {
-                                            XposedBridge.log("FakeImageHook: BUFFER TOO SMALL in " + pkg);
-                                        }
-                                    }
+                            Image.Plane[] planes = image.getPlanes();
+                            if (planes.length > 0) {
+                                ByteBuffer buffer = planes[0].getBuffer();
+                                byte[] bytes = bitmapToJpeg(fake);
 
-                                } catch (Throwable e) {
-                                    XposedBridge.log("FakeImageHook ERROR (" + pkg + "): " + e);
-                                } finally {
-                                    if (image != null) image.close();
+                                if (bytes != null && bytes.length <= buffer.capacity()) {
+                                    buffer.rewind();
+                                    buffer.put(bytes);
+                                    XposedBridge.log("FakeImageHook: IMAGE REPLACED OK in " + pkg);
+                                } else {
+                                    XposedBridge.log("FakeImageHook: BUFFER TOO SMALL in " + pkg);
                                 }
-                            }, null);
+                            }
+
+                        } catch (Throwable e) {
+                            XposedBridge.log("FakeImageHook ERROR (" + pkg + "): " + e);
+                        } finally {
+                            if (image != null) image.close();
                         }
-                    });
+                    }, null);
+                }
+            });
 
         } catch (Throwable e) {
             XposedBridge.log("FakeImageHook FAIL HOOK (" + pkg + "): " + e);
