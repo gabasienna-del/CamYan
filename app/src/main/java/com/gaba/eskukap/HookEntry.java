@@ -77,7 +77,7 @@ public class HookEntry implements IXposedHookLoadPackage {
 
     // ---------- подмена JPEG кадра ----------
     private void replaceJpeg(Image img) {
-        File f = new File("/sdcard/Eskukap/fake.jpg");
+        File f = new File("/sdcard/Pictures/Eskukap/fake.jpg");
         if (!f.exists()) {
             XposedBridge.log(TAG + ": fake.jpg not found (JPEG)");
             return;
@@ -105,7 +105,7 @@ public class HookEntry implements IXposedHookLoadPackage {
     private void replaceYuv(Image img) {
         if (img.getFormat() != ImageFormat.YUV_420_888) return;
 
-        File f = new File("/sdcard/Eskukap/fake.jpg");
+        File f = new File("/sdcard/Pictures/Eskukap/fake.jpg");
         if (!f.exists()) {
             XposedBridge.log(TAG + ": fake.jpg not found (YUV)");
             return;
