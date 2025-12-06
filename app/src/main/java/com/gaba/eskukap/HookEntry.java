@@ -269,3 +269,37 @@ public class HookEntry implements IXposedHookLoadPackage {
         }
     }
 }
+
+// ========= HARDWAREBUFFER (fmt 256) → Bitmap → scale 1280x720 =========
+@androidx.annotation.RequiresApi(api = android.os.Build.VERSION_CODES.Q)
+private static android.graphics.Bitmap hardwareBufferToScaledBitmap(Image image) {
+    try {
+        android.hardware.HardwareBuffer hb = image.getHardwareBuffer();
+        if (hb == null) return null;
+
+        // Определение формата (часто RGBA_8888)
+        int pixelFormat = android.graphics.PixelFormat.RGBA_8888;
+
+        android.graphics.Bitmap src = android.graphics.Bitmap.wrapHardwareBuffer(hb, pixelFormat);
+        if (src == null) return null;
+
+        android.graphics.Bitmap scaled = android.graphics.Bitmap.createScaledBitmap(src, 1280, 720, true);
+        return scaled;
+    } catch (Throwable t) {
+        de.robv.android.xposed.XposedBridge.log("EskukapHook: hardwareBufferToBitmap ERR: " + t);
+        return null;
+    }
+}
+// ===== ВСТАВЛЯЕМ ВНУТРИ afterHookedMethod К image FORMAT=256 =====
+// ПОИСК: if (image.getFormat() == ImageFormat.YUV_420_888) { ... }
+// ПОСЛЕ НЕГО ДОБАВЬ ЭТО:
+
+if (image.getFormat() == 256) {  // PRIVATE → HardwareBuffer stream
+    android.graphics.Bitmap bmp = hardwareBufferToScaledBitmap(image);
+    if (bmp != null) {
+        de.robv.android.xposed.XposedBridge.log("EskukapHook: PRIVATE frame scaled to 1280x720 OK");
+        // TODO: здесь позже подменим кадр JPEG/YUV
+    } else {
+        de.robv.android.xposed.XposedBridge.log("EskukapHook: PRIVATE convert failed");
+    }
+}
