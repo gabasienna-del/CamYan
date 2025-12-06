@@ -1,14 +1,15 @@
 package com.gaba.eskukap;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
+import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
-import de.robv.android.xposed.callbacks.XC_MethodHook;
 
 /**
- * Простой тестовый хук: логируем загрузку ru.yandex.taximeter
- * и хукаем метод String.toString() только ради проверки.
+ * Простой тестовый хук:
+ * - логируем загрузку ru.yandex.taximeter
+ * - хукаем String.toString() только для проверки работы модуля.
  */
 public class HookEntry implements IXposedHookLoadPackage {
 
@@ -22,7 +23,6 @@ public class HookEntry implements IXposedHookLoadPackage {
         XposedBridge.log("EskukapHook: handleLoadPackage for " + lpparam.packageName);
 
         try {
-            // ТЕСТОВЫЙ ХУК: String.toString()
             XposedHelpers.findAndHookMethod(
                     "java.lang.String",
                     lpparam.classLoader,
