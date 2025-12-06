@@ -1,41 +1,35 @@
 package com.gaba.eskukap;
 
-import android.os.Environment;
 import android.util.Log;
-
 import java.io.File;
 import java.io.FileInputStream;
 
 public class FileHelper {
 
-    private static final String TAG = "EskukapFile";
+    private static final String TAG="EskukapFile";
 
-    public static byte[] readFile(String path) {
+    private static final String[] paths = new String[]{
+            "/data/local/tmp/eskukap/frame.jpg",     // SettingsActivity сохраняет сюда
+            "/sdcard/eskukap/frame.jpg",
+            "/storage/emulated/0/eskukap/frame.jpg"
+    };
 
-        String[] tryPaths = new String[]{
-                path,
-                "/storage/emulated/0/eskukap/frame.jpg",
-                "/sdcard/eskukap/frame.jpg",
-                Environment.getExternalStorageDirectory().getPath() + "/eskukap/frame.jpg"
-        };
-
-        for (String p : tryPaths) {
-            try {
-                File f = new File(p);
-                if (f.exists()) {
-                    FileInputStream fis = new FileInputStream(f);
-                    byte[] data = new byte[(int) f.length()];
-                    fis.read(data);
-                    fis.close();
-                    Log.i(TAG, "Loaded: " + p + " size=" + data.length);
-                    return data;
-                } else {
-                    Log.w(TAG, "Try no file: " + p);
+    public static byte[] loadJPEG(){
+        for(String p: paths){
+            try{
+                File f=new File(p);
+                if(f.exists()){
+                    FileInputStream fis=new FileInputStream(f);
+                    byte[] d=new byte[(int)f.length()];
+                    fis.read(d); fis.close();
+                    Log.i(TAG,"JPEG loaded: "+p+" size="+d.length);
+                    return d;
                 }
-            } catch (Throwable e) {
-                Log.e(TAG, "readFile err: " + p + "  " + e);
+            }catch(Throwable e){
+                Log.e(TAG,"read err "+p+" -> "+e);
             }
         }
+        Log.e(TAG,"NO JPEG FOUND");
         return null;
     }
 }
