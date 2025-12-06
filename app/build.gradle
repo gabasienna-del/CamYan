@@ -8,14 +8,16 @@ android {
 
     defaultConfig {
         applicationId "com.gaba.eskukap"
-        minSdk 21
+        minSdk 24
         targetSdk 34
+
         versionCode 1
         versionName "1.0"
     }
 
-    buildFeatures {
-        buildConfig true
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 
     buildTypes {
@@ -23,18 +25,10 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
-        debug {
-            minifyEnabled false
-        }
-    }
-
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
+        debug { debuggable true }
     }
 }
 
 dependencies {
-    // Только для компиляции, в APK не входит
     compileOnly 'de.robv.android.xposed:api:82'
 }
