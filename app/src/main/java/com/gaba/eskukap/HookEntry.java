@@ -104,7 +104,11 @@ public class HookEntry implements IXposedHookLoadPackage {
                                     "EskukapHook: MediaCodec.queueInputBuffer idx=" +
                                             index + " off=" + offset + " size=" + size + " pts=" + pts
                             );
-                            // TODO: здесь можно менять содержимое ByteBuffer перед кодеком
+
+                            // ↓↓↓ Здесь потом можно аккуратно подменять содержимое буфера
+                            // MediaCodec codec = (MediaCodec) param.thisObject;
+                            // ByteBuffer buf = codec.getInputBuffer(index);
+                            // и дальше через JpegYuvPipeline.queueYuvToMediaCodec(...)
                         }
                     }
             );
@@ -112,7 +116,7 @@ public class HookEntry implements IXposedHookLoadPackage {
             XposedBridge.log("EskukapHook MEDIACODEC queueInputBuffer HOOK ERROR: " + e);
         }
 
-        // ---- 5. ImageReader: хук acquireLatestImage() ----
+        // ---- 5. ImageReader: хук acquireLatestImage() + точка входа JPG→YUV ----
         try {
             XposedHelpers.findAndHookMethod(
                     ImageReader.class,
@@ -127,8 +131,37 @@ public class HookEntry implements IXposedHookLoadPackage {
                                 int h = image.getHeight();
                                 XposedBridge.log("EskukapHook: ImageReader frame " + w + "x" + h);
 
-                                // ↓↓↓ Сюда вставлять обработку кадра
-                                // (JPG → YUV → подмена содержимого, запись в буфер и т.п.)
+                                // ===== МЕСТО ДЛЯ JPG → YUV → ДАЛЬШЕ =====
+                                // Здесь аккуратно вставлен вызов JpegYuvPipeline.
+                                // Ты просто подставляешь реальные jpeg-байты (из файла/сети/где угодно).
+
+                                try {
+                                    // TODO: сюда положи реальные данные JPEG
+                                    byte[] jpegData = null; // например, загрузка из /sdcard/...
+
+                                    if (jpegData != null) {
+                                        int[] outWH = new int[2];
+                                        byte[] yuv = JpegYuvPipeline.jpegToYuv420(jpegData, outWH);
+                                        if (yuv != null) {
+                                            XposedBridge.log(
+                                                    "EskukapHook: jpeg->yuv OK " +
+                                                            outWH[0] + "x" + outWH[1] +
+                                                            " len=" + yuv.length
+                                            );
+
+                                            // Дальше 2 пути:
+                                            // 1) Впихнуть этот YUV в другой ImageReader:
+                                            //    JpegYuvPipeline.pushYuvToImageReader(другойReader, yuv, outWH[0], outWH[1]);
+                                            //
+                                            // 2) Отдать YUV в MediaCodec:
+                                            //    JpegYuvPipeline.queueYuvToMediaCodec(codec, yuv, System.nanoTime() / 1000);
+                                        } else {
+                                            XposedBridge.log("EskukapHook: jpeg->yuv returned null");
+                                        }
+                                    }
+                                } catch (Throwable t) {
+                                    XposedBridge.log("EskukapHook: jpeg->yuv error: " + t);
+                                }
 
                                 // image.close(); // НЕ закрываем — пусть приложение само закроет
                             }
