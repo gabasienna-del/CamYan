@@ -7,8 +7,6 @@ import android.media.Image;
 import android.media.ImageReader;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
@@ -20,6 +18,7 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage;
 public class HookEntry implements IXposedHookLoadPackage {
 
     private static final String TAG = "Eskukap";
+    private static final String FAKE_PATH = "/data/local/tmp/eskukap_fake.jpg";
 
     @Override
     public void handleLoadPackage(final XC_LoadPackage.LoadPackageParam lpparam) {
@@ -31,8 +30,6 @@ public class HookEntry implements IXposedHookLoadPackage {
                     "android.media.ImageReader",
                     lpparam.classLoader
             );
-
-            XposedBridge.log(TAG + ": ImageReader hook OK");
 
             XposedHelpers.findAndHookMethod(
                     imageReaderClass,
@@ -56,6 +53,8 @@ public class HookEntry implements IXposedHookLoadPackage {
                         }
                     });
 
+            XposedBridge.log(TAG + ": ImageReader hook OK");
+
         } catch (Throwable t) {
             XposedBridge.log(TAG + ": ImageReader hook FAIL: " + t);
         }
@@ -63,91 +62,40 @@ public class HookEntry implements IXposedHookLoadPackage {
 
     private void handleImage(Image img) {
         int format = img.getFormat();
-        XposedBridge.log(TAG + ": Frame format=" + format +
-                " size=" + img.getWidth() + "x" + img.getHeight());
+        int w = img.getWidth();
+        int h = img.getHeight();
 
-        if (format == ImageFormat.YUV_420_888) {
-            replaceYuv(img);
-        } else if (format == ImageFormat.JPEG) {
-            replaceJpeg(img);
-        } else {
-            XposedBridge.log(TAG + ": Unsupported format, skip");
+        XposedBridge.log(TAG + ": Frame format=" + format + " size=" + w + "x" + h);
+
+        if (format != ImageFormat.YUV_420_888) {
+            XposedBridge.log(TAG + ": Skip, not YUV_420_888");
+            return;
         }
-    }
 
-    // ---------- подмена JPEG кадра ----------
-    private void replaceJpeg(Image img) {
-        File f = new File("/data/local/tmp/fake.jpg");
+        File f = new File(FAKE_PATH);
         if (!f.exists()) {
-            XposedBridge.log(TAG + ": fake.jpg not found (JPEG)");
+            XposedBridge.log(TAG + ": fake file not found: " + FAKE_PATH);
             return;
         }
 
-        byte[] jpeg = readFile(f);
-        if (jpeg == null || jpeg.length == 0) {
-            XposedBridge.log(TAG + ": fake.jpg read error");
-            return;
-        }
-
-        Image.Plane[] planes = img.getPlanes();
-        if (planes == null || planes.length == 0) return;
-
-        ByteBuffer buf = planes[0].getBuffer();
-        buf.rewind();
-
-        int len = Math.min(buf.remaining(), jpeg.length);
-        buf.put(jpeg, 0, len);
-
-        XposedBridge.log(TAG + ": JPEG frame replaced, bytes=" + len);
-    }
-
-    // ---------- подмена YUV кадра (как раньше) ----------
-    private void replaceYuv(Image img) {
-        if (img.getFormat() != ImageFormat.YUV_420_888) return;
-
-        File f = new File("/data/local/tmp/fake.jpg");
-        if (!f.exists()) {
-            XposedBridge.log(TAG + ": fake.jpg not found (YUV)");
-            return;
-        }
-
-        Bitmap bmp = BitmapFactory.decodeFile(f.getAbsolutePath());
+        Bitmap bmp = BitmapFactory.decodeFile(FAKE_PATH);
         if (bmp == null) {
-            XposedBridge.log(TAG + ": bitmap decode fail");
+            XposedBridge.log(TAG + ": decode fake failed");
             return;
         }
 
-        int w = img.getWidth(), h = img.getHeight();
         if (bmp.getWidth() != w || bmp.getHeight() != h) {
             bmp = Bitmap.createScaledBitmap(bmp, w, h, true);
         }
 
         byte[] nv21 = bitmapToNV21(bmp, w, h);
         if (nv21 == null) {
-            XposedBridge.log(TAG + ": bitmapToNV21 fail");
+            XposedBridge.log(TAG + ": bitmapToNV21 failed");
             return;
         }
 
         writeNV21(img, nv21, w, h);
         XposedBridge.log(TAG + ": YUV frame replaced");
-    }
-
-    // ---------- helpers ----------
-    private byte[] readFile(File f) {
-        try {
-            FileInputStream fis = new FileInputStream(f);
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            byte[] buf = new byte[4096];
-            int r;
-            while ((r = fis.read(buf)) != -1) {
-                baos.write(buf, 0, r);
-            }
-            fis.close();
-            return baos.toByteArray();
-        } catch (Throwable t) {
-            XposedBridge.log(TAG + ": readFile error " + t);
-            return null;
-        }
     }
 
     private byte[] bitmapToNV21(Bitmap bmp, int w, int h) {
@@ -176,7 +124,7 @@ public class HookEntry implements IXposedHookLoadPackage {
 
                 yuv[yIndex++] = (byte) Y;
 
-                if ((j % 2 == 0) && (i % 2 == 0)) {
+                if (j % 2 == 0 && i % 2 == 0) {
                     yuv[uvIndex++] = (byte) V;
                     yuv[uvIndex++] = (byte) U;
                 }
@@ -195,34 +143,34 @@ public class HookEntry implements IXposedHookLoadPackage {
         Image.Plane[] planes = img.getPlanes();
 
         // Y
-        ByteBuffer Y = planes[0].getBuffer();
-        int rowStrideY = planes[0].getRowStride();
+        ByteBuffer yBuf = planes[0].getBuffer();
+        int yRowStride = planes[0].getRowStride();
         for (int row = 0; row < h; row++) {
-            Y.position(row * rowStrideY);
-            Y.put(nv21, row * w, w);
+            yBuf.position(row * yRowStride);
+            yBuf.put(nv21, row * w, w);
         }
 
         // UV
-        ByteBuffer U = planes[1].getBuffer();
-        ByteBuffer V = planes[2].getBuffer();
-        int rowStrideU = planes[1].getRowStride();
-        int pixelStrideU = planes[1].getPixelStride();
-        int rowStrideV = planes[2].getRowStride();
-        int pixelStrideV = planes[2].getPixelStride();
+        ByteBuffer uBuf = planes[1].getBuffer();
+        ByteBuffer vBuf = planes[2].getBuffer();
+        int uRowStride = planes[1].getRowStride();
+        int vRowStride = planes[2].getRowStride();
+        int uPixelStride = planes[1].getPixelStride();
+        int vPixelStride = planes[2].getPixelStride();
 
-        int uvOffset = w * h;
+        int uvStart = w * h;
 
         for (int row = 0; row < h / 2; row++) {
             for (int col = 0; col < w / 2; col++) {
-                int idx = uvOffset + row * w + col * 2;
-                byte Vb = nv21[idx];
-                byte Ub = nv21[idx + 1];
+                int idx = uvStart + row * w + col * 2;
+                byte V = nv21[idx];
+                byte U = nv21[idx + 1];
 
-                int posU = row * rowStrideU + col * pixelStrideU;
-                int posV = row * rowStrideV + col * pixelStrideV;
+                int uPos = row * uRowStride + col * uPixelStride;
+                int vPos = row * vRowStride + col * vPixelStride;
 
-                if (posU < U.capacity()) U.put(posU, Ub);
-                if (posV < V.capacity()) V.put(posV, Vb);
+                if (uPos < uBuf.capacity()) uBuf.put(uPos, U);
+                if (vPos < vBuf.capacity()) vBuf.put(vPos, V);
             }
         }
     }
