@@ -1,23 +1,19 @@
 package com.gaba.eskukap;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
 import android.graphics.Rect;
 import android.graphics.YuvImage;
-import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
-import android.media.Image;
+import android.hardware.camera2.CameraDevice;
 import android.media.ImageReader;
-import android.util.Log;
 
 import androidx.camera.core.ImageProxy;
-
-import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
+import java.io.ByteArrayOutputStream;
 
-import de.robv.android.xposed.IXposedHookLoadPackage;
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.XposedHelpers;
+import de.robv.android.xposed.*;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 public class HookEntry implements IXposedHookLoadPackage {
@@ -29,7 +25,7 @@ public class HookEntry implements IXposedHookLoadPackage {
 
         XposedBridge.log("EskukapHook: Loaded ru.yandex.taximeter");
 
-        // Camera2: openCamera log
+        // LOG CAMERA
         XposedHelpers.findAndHookMethod(
                 CameraManager.class,
                 "openCamera",
@@ -44,131 +40,108 @@ public class HookEntry implements IXposedHookLoadPackage {
                 }
         );
 
-        // Camera2: ImageReader.acquireLatestImage hook — FRAME REPLACER
-        XposedHelpers.findAndHookMethod(
-                ImageReader.class,
-                "acquireLatestImage",
-                new XC_MethodHook() {
-                    @Override
-                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-
-                        Image img = (Image) param.getResult();
-                        if (img == null) return;
-
-                        int w = img.getWidth();
-                        int h = img.getHeight();
-
-                        XposedBridge.log("EskukapHook: Frame " + w + "x" + h);
-
-                        // LOAD JPEG
-                        byte[] jpeg = FileHelper.loadJPEG();
-                        if (jpeg == null) {
-                            XposedBridge.log("EskukapHook: ❌ JPEG NOT FOUND");
-                            return;
-                        }
-
-                        // Convert JPEG → YUV
-                        int[] out = new int[2];
-                        byte[] yuv = JpegYuvPipeline.jpegToYuv420(jpeg, out);
-                        if (yuv == null) {
-                            XposedBridge.log("EskukapHook: ❌ JPEG to YUV fail");
-                            return;
-                        }
-
-                        // Push to virtual ImageReader surface (frame injection)
-                        JpegYuvPipeline.pushYuvToImageReader(
-                                (ImageReader) param.thisObject,
-                                yuv,
-                                out[0],
-                                out[1]
-                        );
-
-                        XposedBridge.log("EskukapHook: ✅ FRAME REPLACED WITH JPEG");
-                    }
-                }
-        );
-
-        // CameraX: ImageAnalysis.Analyzer.analyze(ImageProxy) — YUV → JPEG capture
+        // ---------- CameraX ANALYZER HOOK ----------
         try {
-            Class<?> analyzerClass = XposedHelpers.findClass(
+            Class<?> analyzer = XposedHelpers.findClass(
                     "androidx.camera.core.ImageAnalysis$Analyzer",
                     lpparam.classLoader
             );
-            Class<?> imageProxyClass = XposedHelpers.findClass(
+            Class<?> imageProxy = XposedHelpers.findClass(
                     "androidx.camera.core.ImageProxy",
                     lpparam.classLoader
             );
 
-            XposedBridge.log("EskukapHook: Analyzer & ImageProxy classes found");
-
             XposedHelpers.findAndHookMethod(
-                    analyzerClass,
+                    analyzer,
                     "analyze",
-                    imageProxyClass,
+                    imageProxy,
                     new XC_MethodHook() {
+
                         @Override
                         protected void afterHookedMethod(MethodHookParam param) {
-                            try {
-                                Object arg0 = param.args[0];
-                                if (arg0 == null) return;
 
-                                ImageProxy image = (ImageProxy) arg0;
-                                ImageProxy.PlaneProxy[] planes = image.getPlanes();
-                                if (planes == null || planes.length < 3) {
-                                    XposedBridge.log("EskukapHook: Not enough planes");
-                                    return;
-                                }
+                            ImageProxy img = (ImageProxy) param.args[0];
+                            int w = img.getWidth(), h = img.getHeight();
 
-                                ByteBuffer y = planes[0].getBuffer();
-                                ByteBuffer u = planes[1].getBuffer();
-                                ByteBuffer v = planes[2].getBuffer();
+                            byte[] nv21 = yuv420ToNv21(img);
+                            if(nv21 == null) return;
 
-                                byte[] yBytes = new byte[y.remaining()];
-                                byte[] uBytes = new byte[u.remaining()];
-                                byte[] vBytes = new byte[v.remaining()];
+                            // NV21 → JPEG
+                            YuvImage yuvImage = new YuvImage(nv21, ImageFormat.NV21, w, h, null);
+                            ByteArrayOutputStream jpegStream = new ByteArrayOutputStream();
+                            yuvImage.compressToJpeg(new Rect(0, 0, w, h), 95, jpegStream);
+                            byte[] jpegBytes = jpegStream.toByteArray();
 
-                                y.get(yBytes);
-                                u.get(uBytes);
-                                v.get(vBytes);
+                            // JPEG → Bitmap
+                            Bitmap bmp = BitmapFactory.decodeByteArray(jpegBytes,0,jpegBytes.length);
+                            if(bmp == null) return;
 
-                                XposedBridge.log("EskukapHook: YUV captured, converting...");
+                            // ███▼ МАСШТАБИРОВАНИЕ ДО 1280×720 ▼███
+                            Bitmap scaled = Bitmap.createScaledBitmap(bmp, 1280, 720, true);
 
-                                // упрощённый YUV -> JPEG: используем только Y-плоскость как NV21
-                                YuvImage yuvImage = new YuvImage(
-                                        yBytes,
-                                        ImageFormat.NV21,
-                                        image.getWidth(),
-                                        image.getHeight(),
-                                        null
-                                );
+                            // Bitmap → JPEG
+                            ByteArrayOutputStream out2 = new ByteArrayOutputStream();
+                            scaled.compress(Bitmap.CompressFormat.JPEG, 90, out2);
+                            byte[] jpeg720 = out2.toByteArray();
 
-                                ByteArrayOutputStream out = new ByteArrayOutputStream();
-                                boolean ok = yuvImage.compressToJpeg(
-                                        new Rect(0, 0, image.getWidth(), image.getHeight()),
-                                        90,
-                                        out
-                                );
-                                if (!ok) {
-                                    XposedBridge.log("EskukapHook: JPEG compress fail");
-                                    return;
-                                }
+                            XposedBridge.log("EskukapHook: Resized to 1280x720, size="+jpeg720.length);
 
-                                byte[] jpegBytes = out.toByteArray();
-                                XposedBridge.log("EskukapHook: JPEG ready, size=" + jpegBytes.length);
-
-                                // при желании можно сохранить в файл:
-                                // FileHelper.saveCapturedJPEG(jpegBytes);
-
-                            } catch (Throwable t) {
-                                XposedBridge.log("EskukapHook: analyze hook error: " +
-                                        Log.getStackTraceString(t));
-                            }
+                            // ----- если нужно подменять -----
+                            // byte[] yuv720 = JpegYuvPipeline.jpegToYuv420(jpeg720,new int[]{1280,720});
+                            // JpegYuvPipeline.pushYuvToImageReader(reader,yuv720,1280,720);
                         }
                     }
             );
-        } catch (Throwable t) {
-            XposedBridge.log("EskukapHook: Analyzer hook not installed: " +
-                    Log.getStackTraceString(t));
+
+        } catch(Exception e){
+            XposedBridge.log("EskukapHook: CameraX hook fail "+e);
         }
+    }
+
+    // ███████ YUV420 → NV21 (для JPEG) ███████
+    private static byte[] yuv420ToNv21(ImageProxy image) {
+        int width = image.getWidth();
+        int height = image.getHeight();
+
+        ImageProxy.PlaneProxy[] planes = image.getPlanes();
+        ByteBuffer y = planes[0].getBuffer();
+        ByteBuffer u = planes[1].getBuffer();
+        ByteBuffer v = planes[2].getBuffer();
+
+        int yStride = planes[0].getRowStride();
+        int uvStride = planes[1].getRowStride();
+        int uvPixStride = planes[1].getPixelStride();
+
+        byte[] nv21 = new byte[width * height * 3 / 2];
+
+        // ---- copy Y ----
+        int pos = 0;
+        byte[] row = new byte[yStride];
+        for (int i = 0; i < height; i++) {
+            y.position(i * yStride);
+            y.get(row, 0, yStride);
+            System.arraycopy(row, 0, nv21, pos, width);
+            pos += width;
+        }
+
+        // ---- copy UV as VU ----
+        int uvPos = width * height;
+        byte[] uRow = new byte[uvStride];
+        byte[] vRow = new byte[uvStride];
+
+        for (int i = 0; i < height / 2; i++) {
+            int start = i * uvStride;
+            u.position(start);
+            v.position(start);
+            u.get(uRow,0,uvStride);
+            v.get(vRow,0,uvStride);
+
+            for(int j=0; j<width/2; j++){
+                int idx = j * uvPixStride;
+                nv21[uvPos++] = vRow[idx];
+                nv21[uvPos++] = uRow[idx];
+            }
+        }
+        return nv21;
     }
 }
