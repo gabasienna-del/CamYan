@@ -1,6 +1,7 @@
 package com.gaba.eskukap;
 
 import android.util.Log;
+
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
@@ -10,13 +11,15 @@ public class HookEntry implements IXposedHookLoadPackage {
     @Override
     public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) throws Throwable {
 
-        String target = "com.yourapp.name"; // <<< поменяй на нужную цель
+        // Пакет приложения, где хочешь подменять камеру
+        String target = "com.vkontakte.android"; // <<< сюда свой пакет
 
-        if (!lpparam.packageName.equals(target)) return;
+        if (!lpparam.packageName.equals(target)) {
+            return;
+        }
 
-        Log.i("EskukapHook", "Hook active -> " + lpparam.packageName);
+        Log.i("EskukapHook", "Hook active for: " + lpparam.packageName);
 
-        // Хук ImageReader.acquireLatestImage на подмену кадра
         XposedHelpers.findAndHookMethod(
                 "android.media.ImageReader",
                 lpparam.classLoader,
