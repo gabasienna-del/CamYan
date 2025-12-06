@@ -89,3 +89,16 @@ public class HookEntry implements IXposedHookLoadPackage {
         });
     }
 }
+
+// --- LOG FORMAT & PLANES CHECK ---
+int format = image.getFormat();
+int planesCount = image.getPlanes().length;
+
+XposedBridge.log("Eskukap: format=" + format + " planes=" + planesCount);
+
+if (format != android.graphics.ImageFormat.YUV_420_888 || planesCount < 3) {
+    XposedBridge.log("Eskukap: not YUV420 or planes<3 → skip");
+    return;
+}
+// ---------------------------------
+
