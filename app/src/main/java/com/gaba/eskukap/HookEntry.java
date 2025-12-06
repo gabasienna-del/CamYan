@@ -1,12 +1,14 @@
 package com.gaba.eskukap;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
 import android.media.Image;
 import android.media.ImageReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
-import java.nio.file.Files;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
@@ -20,11 +22,10 @@ public class HookEntry implements IXposedHookLoadPackage {
 
     @Override
     public void handleLoadPackage(final XC_LoadPackage.LoadPackageParam lpparam) throws Throwable {
-
         if(!lpparam.packageName.equals("ru.yandex.taximeter")) return;
+
         XposedBridge.log("Eskukap: Loaded ru.yandex.taximeter");
 
-        // Hook ImageReader.acquireNextImage()
         XposedHelpers.findAndHookMethod(ImageReader.class, "acquireNextImage", new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
@@ -32,47 +33,42 @@ public class HookEntry implements IXposedHookLoadPackage {
                 if(image == null) return;
 
                 int format = image.getFormat();
-                int width  = image.getWidth();
-                int height = image.getHeight();
+                int w=image.getWidth(), h=image.getHeight();
 
-                XposedBridge.log("Eskukap: Frame format=" + format + " size=" + width + "x" + height);
+                XposedBridge.log("Eskukap: Frame format=" + format + " size=" + w + "x" + h);
 
-                // Разрешаем JPEG + YUV
-                if(format != ImageFormat.JPEG && format != ImageFormat.YUV_420_888){
-                    XposedBridge.log("Eskukap: Skip, unsupported format");
+                if(format != ImageFormat.JPEG) return; // пока меняем только JPEG
+
+                File f = new File(IMG_PATH);
+                if(!f.exists()){
+                    XposedBridge.log("Eskukap: fake.jpg NOT FOUND at "+IMG_PATH);
                     return;
                 }
 
-                File file = new File(IMG_PATH);
-                if(!file.exists()){
-                    XposedBridge.log("Eskukap: fake.jpg NOT FOUND at " + IMG_PATH);
+                // ---- читаем картинку ----
+                Bitmap bmp = BitmapFactory.decodeStream(new FileInputStream(f));
+                if(bmp==null){
+                    XposedBridge.log("Eskukap: decode failed");
                     return;
                 }
 
-                // ---- JPEG подмена ----
-                if(format == ImageFormat.JPEG){
-                    XposedBridge.log("Eskukap: JPEG detected → replace...");
+                // ---- сжимаем под размер камеры ----
+                Bitmap scaled = Bitmap.createScaledBitmap(bmp, w, h, true);
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                scaled.compress(Bitmap.CompressFormat.JPEG, 70, baos); // 70% качества — помещается
+                byte[] fake = baos.toByteArray();
 
-                    byte[] fake = Files.readAllBytes(file.toPath());
-                    Image.Plane[] p = image.getPlanes();
-                    ByteBuffer buf = p[0].getBuffer();
-                    buf.clear();
-                    buf.put(fake);
+                Image.Plane p = image.getPlanes()[0];
+                ByteBuffer buf = p.getBuffer();
+                buf.clear();
 
-                    XposedBridge.log("Eskukap: JPEG replaced OK");
+                if(fake.length > buf.remaining()){
+                    XposedBridge.log("Eskukap: resized JPEG too big ("+fake.length+" > "+buf.remaining()+") try lower quality");
                     return;
                 }
 
-                // ---- YUV подмена ----
-                if(format == ImageFormat.YUV_420_888){
-                    XposedBridge.log("Eskukap: YUV detected → replace...");
-
-                    byte[] fake = Files.readAllBytes(file.toPath());
-                    Image.Plane[] planes = image.getPlanes();
-                    planes[0].getBuffer().put(fake,0,Math.min(fake.length,planes[0].getBuffer().remaining()));
-
-                    XposedBridge.log("Eskukap: YUV replaced OK");
-                }
+                buf.put(fake);
+                XposedBridge.log("Eskukap: *** JPEG REPLACED OK ***");
             }
         });
     }
