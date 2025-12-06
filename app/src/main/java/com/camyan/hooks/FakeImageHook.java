@@ -19,7 +19,7 @@ public class FakeImageHook {
         // Загружаем JPEG картинку с памяти
         byte[] jpgBytes = Files.readAllBytes(Paths.get("/sdcard/fake.jpg"));
 
-        // Преобразование jpg -> Image (примерная заглушка, позже заменим)
+        // Преобразование jpg -> Image (примерный код, адаптируй под свой API)
         Image fake = ImageBytesToImage(jpgBytes, img.getWidth(), img.getHeight());
 
         if (fake != null) {
@@ -29,8 +29,8 @@ public class FakeImageHook {
         }
     }
 
-    // Заглушка (сюда потом вставим настоящее преобразование в Image)
+    // Заглушка (сюда нужно добавить свою реализацию)
     private Image ImageBytesToImage(byte[] data, int w, int h) {
-        return null;
+        return null; // Реализуешь позже, иначе фрейм не заменится
     }
 }
