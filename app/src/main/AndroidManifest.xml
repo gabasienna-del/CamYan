@@ -1,22 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.gaba.eskukap">
 
+    <!-- Для доступа к картинке на sdcard -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+
     <application
         android:label="Eskukap"
-        android:icon="@mipmap/ic_launcher">
+        android:allowBackup="false"
+        android:supportsRtl="true">
 
-        <meta-data android:name="xposedmodule" android:value="true"/>
-        <meta-data android:name="xposeddescription" android:value="Eskukap camera hook"/>
-        <meta-data android:name="xposedminversion" android:value="54"/>
+        <!-- Xposed метаданные -->
+        <meta-data
+            android:name="xposedmodule"
+            android:value="true" />
+        <meta-data
+            android:name="xposeddescription"
+            android:value="Eskukap camera hook" />
+        <meta-data
+            android:name="xposedminversion"
+            android:value="82" />
 
+        <!-- Activity для настроек в LSPosed (иконка в списке модулей) -->
         <activity
             android:name=".SettingsActivity"
             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="de.robv.android.xposed.category.MODULE_SETTINGS"/>
+                <action android:name="android.intent.action.MAIN" />
+                <!-- чтобы была кнопка "настройки модуля" в LSPosed -->
+                <category android:name="de.robv.android.xposed.category.MODULE_SETTINGS" />
             </intent-filter>
         </activity>
 
+        <!-- Служебная Activity, которая записывает путь картинки в SharedPreferences -->
+        <activity
+            android:name=".SetImage"
+            android:exported="true" />
     </application>
+
 </manifest>
