@@ -1,11 +1,11 @@
 package com.gaba.eskukap;
 
-import android.view.View;
-import android.view.ViewGroup;
-import android.view.TextureView;
-import android.view.SurfaceView;
-import android.content.res.Resources;
-import android.opengl.GLSurfaceView;
+import android.media.Image;
+import android.media.ImageReader;
+import android.graphics.ImageFormat;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.nio.ByteBuffer;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
@@ -15,48 +15,35 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 public class HookEntry implements IXposedHookLoadPackage {
 
-    private static String viewInfo(View v) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(v.getClass().getName());
-        sb.append(" @").append(Integer.toHexString(System.identityHashCode(v)));
-
-        try {
-            int id = v.getId();
-            if (id != View.NO_ID) {
-                Resources res = v.getResources();
-                String name = res.getResourceEntryName(id);
-                sb.append(" id=").append(name);
-            }
-        } catch (Throwable ignored) {}
-        return sb.toString();
+    private static byte[] buffer(ByteBuffer buffer){
+        byte[] bytes = new byte[buffer.remaining()];
+        buffer.get(bytes);
+        return bytes;
     }
 
-    private static void scanViews(View root) {
-        if (root == null) return;
+    private static void saveYUVtoFile(ImageProxy proxy) {
         try {
-            String cls = root.getClass().getName().toLowerCase();
+            Image image = (Image) XposedHelpers.callMethod(proxy, "getImage");
+            if (image == null) return;
 
-            if (root instanceof TextureView) {
-                XposedBridge.log("Eskukap: TextureView FOUND -> " + viewInfo(root));
-            }
-            if (root instanceof SurfaceView && !(root instanceof GLSurfaceView)) {
-                XposedBridge.log("Eskukap: SurfaceView FOUND -> " + viewInfo(root));
-            }
-            if (root instanceof GLSurfaceView) {
-                XposedBridge.log("Eskukap: GLSurfaceView FOUND -> " + viewInfo(root));
-            }
-            // любые кастомные camera/preview view
-            if (cls.contains("preview") || cls.contains("camera")) {
-                XposedBridge.log("Eskukap: Camera-like View FOUND -> " + viewInfo(root));
-            }
+            Image.Plane[] p = image.getPlanes();
+            if (p.length < 3) return;
 
-            if (root instanceof ViewGroup) {
-                ViewGroup vg = (ViewGroup) root;
-                for (int i = 0; i < vg.getChildCount(); i++) {
-                    scanViews(vg.getChildAt(i));
-                }
-            }
-        } catch (Throwable ignored) {}
+            File dir = new File("/sdcard/Eskukap/");
+            dir.mkdirs();
+            File file = new File(dir, "frame_" + System.currentTimeMillis() + ".yuv");
+
+            FileOutputStream fos = new FileOutputStream(file);
+            fos.write(buffer(p[0].getBuffer())); // Y
+            fos.write(buffer(p[1].getBuffer())); // U
+            fos.write(buffer(p[2].getBuffer())); // V
+            fos.close();
+
+            XposedBridge.log("Eskukap: YUV saved -> " + file.getAbsolutePath());
+
+        } catch (Throwable e) {
+            XposedBridge.log("Eskukap ERROR saveYUV " + e);
+        }
     }
 
     @Override
@@ -64,22 +51,27 @@ public class HookEntry implements IXposedHookLoadPackage {
 
         if (!lpparam.packageName.equals("ru.yandex.taximeter")) return;
 
-        XposedBridge.log("Eskukap: hook active - scanning layouts (Surface/Texture/Preview)");
+        try {
+            Class<?> analyzer = XposedHelpers.findClass(
+                    "androidx.camera.core.ImageAnalysis$Analyzer",
+                    lpparam.classLoader
+            );
 
-        XposedHelpers.findAndHookMethod(
-                "android.view.LayoutInflater",
-                lpparam.classLoader,
-                "inflate",
-                int.class, ViewGroup.class, boolean.class,
-                new XC_MethodHook() {
-                    @Override
-                    protected void afterHookedMethod(MethodHookParam param) {
-                        try {
-                            View v = (View) param.getResult();
-                            if (v != null) scanViews(v);
-                        } catch (Throwable ignored) {}
-                    }
-                }
-        );
+            XposedBridge.log("Eskukap: CameraX Analyzer hook OK");
+
+            XposedHelpers.findAndHookMethod(
+                    analyzer,
+                    "analyze",
+                    "androidx.camera.core.ImageProxy",
+                    new XC_MethodHook() {
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) {
+                            Object imageProxy = param.args[0];
+                            saveYUVtoFile((ImageProxy) imageProxy);
+                        }
+                    });
+        } catch (Throwable e) {
+            XposedBridge.log("Eskukap failed hook CameraX " + e);
+        }
     }
 }
