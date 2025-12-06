@@ -1,13 +1,14 @@
 package com.gaba.eskukap;
 
 import android.app.Activity;
-import android.view.SurfaceView;
-import android.view.Surface;
 import android.graphics.Bitmap;
 import android.view.PixelCopy;
+import android.view.Window;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Environment;
+import android.util.DisplayMetrics;
+
 import java.io.File;
 import java.io.FileOutputStream;
 
@@ -19,58 +20,70 @@ import de.robv.android.xposed.XC_MethodHook;
 
 public class HookEntry implements IXposedHookLoadPackage {
 
-    int frame = 0;
+    private int frame = 0;
 
     @Override
     public void handleLoadPackage(LoadPackageParam lpparam) throws Throwable {
 
         if (!lpparam.packageName.contains("taximeter")) return;
-        XposedBridge.log("Eskukap PixelCopy Hook Loaded!");
+        XposedBridge.log("Eskukap PixelCopy Window Hook Loaded for " + lpparam.packageName);
 
         XposedHelpers.findAndHookMethod(
-                "android.app.Activity", lpparam.classLoader, "onResume",
+                "android.app.Activity",
+                lpparam.classLoader,
+                "onResume",
                 new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                        final Activity act = (Activity) param.thisObject;
 
-                        Activity act = (Activity) param.thisObject;
+                        try {
+                            // размеры экрана
+                            DisplayMetrics dm = act.getResources().getDisplayMetrics();
+                            int width = dm.widthPixels;
+                            int height = dm.heightPixels;
 
-                        SurfaceView sv = act.findViewById(
-                                act.getResources().getIdentifier("camera_view","id",lpparam.packageName));
+                            final Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+                            final Window window = act.getWindow();
+                            final Handler handler = new Handler(Looper.getMainLooper());
 
-                        if (sv == null) {
-                            XposedBridge.log("Eskukap: SurfaceView not found");
-                            return;
-                        }
+                            XposedBridge.log("Eskukap: Start PixelCopy for window " +
+                                    width + "x" + height);
 
-                        Surface surface = sv.getHolder().getSurface();
+                            PixelCopy.request(
+                                    window,
+                                    bitmap,
+                                    new PixelCopy.OnPixelCopyFinishedListener() {
+                                        @Override
+                                        public void onPixelCopyFinished(int result) {
+                                            if (result == PixelCopy.SUCCESS) {
+                                                try {
+                                                    File dir = new File(Environment.getExternalStorageDirectory()
+                                                            + "/Eskukap");
+                                                    //noinspection ResultOfMethodCallIgnored
+                                                    dir.mkdirs();
+                                                    File file = new File(dir, "frame_" + (frame++) + ".jpg");
 
-                        // Создаем bitmap по размеру экрана камеры
-                        Bitmap bitmap = Bitmap.createBitmap(720,1280, Bitmap.Config.ARGB_8888);
+                                                    FileOutputStream fos = new FileOutputStream(file);
+                                                    bitmap.compress(Bitmap.CompressFormat.JPEG, 90, fos);
+                                                    fos.close();
 
-                        PixelCopy.request(surface, bitmap,
-                                result -> {
-                                    if (result == PixelCopy.SUCCESS) {
-                                        try {
-                                            File dir = new File(Environment.getExternalStorageDirectory()+"/Eskukap");
-                                            dir.mkdirs();
-                                            File file = new File(dir,"frame_"+(frame++)+".jpg");
-
-                                            FileOutputStream fos = new FileOutputStream(file);
-                                            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, fos);
-                                            fos.close();
-
-                                            XposedBridge.log("Eskukap Saved: " + file.getAbsolutePath());
-                                        } catch (Exception e) {
-                                            XposedBridge.log("Eskukap Save Error: "+e.toString());
+                                                    XposedBridge.log("Eskukap: Saved frame to " +
+                                                            file.getAbsolutePath());
+                                                } catch (Throwable e) {
+                                                    XposedBridge.log("Eskukap: Save error " + e);
+                                                }
+                                            } else {
+                                                XposedBridge.log("Eskukap: PixelCopy failed, code=" + result);
+                                            }
                                         }
-                                    } else {
-                                        XposedBridge.log("Eskukap PixelCopy failed: "+result);
-                                    }
-                                },
-                                new Handler(Looper.getMainLooper())
-                        );
+                                    },
+                                    handler
+                            );
 
+                        } catch (Throwable e) {
+                            XposedBridge.log("Eskukap: PixelCopy hook error " + e);
+                        }
                     }
                 }
         );
