@@ -1,48 +1,41 @@
 package com.gaba.eskukap;
 
-import android.hardware.camera2.CameraDevice;
-import android.hardware.camera2.CameraCaptureSession;
-import android.util.Log;
-
-import java.util.List;
-import java.util.concurrent.Executor;
-
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 import de.robv.android.xposed.callbacks.XC_MethodHook;
 
+/**
+ * Простой тестовый хук: логируем загрузку ru.yandex.taximeter
+ * и хукаем метод String.toString() только ради проверки.
+ */
 public class HookEntry implements IXposedHookLoadPackage {
 
     @Override
     public void handleLoadPackage(final XC_LoadPackage.LoadPackageParam lpparam) throws Throwable {
 
-        // Целевое приложение (пока такси. Потом можно добавить другие)
-        if (!lpparam.packageName.equals("ru.yandex.taximeter")) return;
+        if (!"ru.yandex.taximeter".equals(lpparam.packageName)) {
+            return;
+        }
 
-        XposedBridge.log("EskukapHook LOADED: " + lpparam.packageName);
+        XposedBridge.log("EskukapHook: handleLoadPackage for " + lpparam.packageName);
 
         try {
-
-            // Hook Camera2 createCaptureSession → получаем момент старта камеры
+            // ТЕСТОВЫЙ ХУК: String.toString()
             XposedHelpers.findAndHookMethod(
-                    CameraDevice.class.getName(),
+                    "java.lang.String",
                     lpparam.classLoader,
-                    "createCaptureSession",
-                    List.class,
-                    CameraCaptureSession.StateCallback.class,
-                    Executor.class,
+                    "toString",
                     new XC_MethodHook() {
                         @Override
                         protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                            XposedBridge.log("Eskukap CameraSession created!");
+                            XposedBridge.log("EskukapHook: String.toString() called");
                         }
                     }
             );
-
-        } catch (Throwable e) {
-            XposedBridge.log("EskukapHook ERROR: " + e);
+        } catch (Throwable t) {
+            XposedBridge.log("EskukapHook ERROR in hook: " + t);
         }
     }
 }
