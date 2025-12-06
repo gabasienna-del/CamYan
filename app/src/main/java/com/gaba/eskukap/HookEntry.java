@@ -1,8 +1,14 @@
 package com.gaba.eskukap;
 
-import android.media.ImageReader;
-import android.media.Image;
-import android.graphics.ImageFormat;
+import android.view.Surface;
+import android.view.SurfaceView;
+import android.graphics.Bitmap;
+import android.os.Environment;
+import android.view.PixelCopy;
+import android.app.Activity;
+import java.io.FileOutputStream;
+import java.io.File;
+import java.nio.ByteBuffer;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
@@ -12,43 +18,50 @@ import de.robv.android.xposed.XC_MethodHook;
 
 public class HookEntry implements IXposedHookLoadPackage {
 
+    int frame = 0;
+
     @Override
     public void handleLoadPackage(LoadPackageParam lpparam) throws Throwable {
 
         if (!lpparam.packageName.contains("taximeter")) return;
+        XposedBridge.log("Eskukap PixelCopy Hook loaded!");
 
-        XposedBridge.log("Eskukap: Loaded " + lpparam.packageName);
+        XposedHelpers.findAndHookMethod(
+            "android.app.Activity", lpparam.classLoader, "onResume",
+            new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) {
+                    Activity act = (Activity) param.thisObject;
 
-        try {
-            XposedHelpers.findAndHookMethod(
-                "android.media.ImageReader",
-                lpparam.classLoader,
-                "acquireLatestImage",
-                new XC_MethodHook() {
-                    @Override
-                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                        Image image = (Image) param.getResult();
-                        if (image == null) return;
+                    try {
+                        SurfaceView sv = act.findViewById(
+                            act.getResources().getIdentifier("camera_view","id",lpparam.packageName));
 
-                        // ---------------- FORMAT + PLANES LOG ----------------
-                        int format = image.getFormat();
-                        int planesCount = image.getPlanes().length;
-                        XposedBridge.log("Eskukap: format=" + format + " planes=" + planesCount);
-
-                        if (format != ImageFormat.YUV_420_888 || planesCount < 3) {
-                            XposedBridge.log("Eskukap: not YUV420 or planes<3 → skip frame");
-                            image.close();
+                        if (sv == null) {
+                            XposedBridge.log("Eskukap: SurfaceView not found");
                             return;
                         }
-                        // -----------------------------------------------------
 
-                        image.close(); // пока только тест логов
+                        Surface surf = sv.getHolder().getSurface();
+                        Bitmap bmp = Bitmap.createBitmap(720,1280, Bitmap.Config.ARGB_8888);
+
+                        PixelCopy.request(surf, bmp, result -> {
+                            try {
+                                File dir = new File(Environment.getExternalStorageDirectory()+"/Eskukap");
+                                dir.mkdirs();
+                                File f = new File(dir,"frame_"+(frame++)+".jpg");
+                                FileOutputStream fos = new FileOutputStream(f);
+                                bmp.compress(Bitmap.CompressFormat.JPEG,90,fos);
+                                fos.close();
+                                XposedBridge.log("Eskukap Saved "+f.getAbsolutePath());
+                            } catch(Exception e){ XposedBridge.log("Eskukap save error "+e); }
+                        }, act.getMainLooper());
+
+                    } catch(Exception e){
+                        XposedBridge.log("Eskukap ERR "+e);
                     }
                 }
-            );
-
-        } catch (Throwable e) {
-            XposedBridge.log("Eskukap ERROR: " + e);
-        }
+            }
+        );
     }
 }
