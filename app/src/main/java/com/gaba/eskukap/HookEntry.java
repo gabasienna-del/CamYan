@@ -24,6 +24,7 @@ public class HookEntry implements IXposedHookLoadPackage {
     @Override
     public void handleLoadPackage(final XC_LoadPackage.LoadPackageParam lpparam) {
 
+        // работаем только с Яндекс Таксометром
         if (!"ru.yandex.taximeter".equals(lpparam.packageName)) return;
         XposedBridge.log("EskukapHook: Loaded ru.yandex.taximeter");
 
@@ -44,21 +45,23 @@ public class HookEntry implements IXposedHookLoadPackage {
 
                         XposedBridge.log("Eskukap: Frame " + w + "x" + h + " fmt=" + fmt);
 
-                        // ========== YUV 420 -> JPEG resize ==========
+                        // ===== YUV_420_888 -> NV21 -> JPEG -> resize 1280x720 =====
                         if (fmt == ImageFormat.YUV_420_888) {
                             byte[] nv21 = yuvToNV21(image);
                             if (nv21 != null) {
                                 byte[] jpeg = resizeNV21(nv21, w, h);
-                                if (jpeg != null)
+                                if (jpeg != null) {
                                     XposedBridge.log("Eskukap: YUV scaled 1280x720 ✓ size=" + jpeg.length);
+                                }
                             }
                         }
 
-                        // ========== PRIVATE -> HardwareBuffer -> Bitmap -> Resize ==========
+                        // ===== PRIVATE (fmt=256) -> HardwareBuffer -> Bitmap -> resize 1280x720 =====
                         if (fmt == 256 && Build.VERSION.SDK_INT >= 29) {
                             Bitmap bmp = privateResize(image);
-                            if (bmp != null)
+                            if (bmp != null) {
                                 XposedBridge.log("Eskukap: PRIVATE scaled 1280x720 ✓");
+                            }
                         }
                     }
                 }
@@ -68,10 +71,11 @@ public class HookEntry implements IXposedHookLoadPackage {
         }
     }
 
-    // ------------------ Convert YUV -> NV21 ------------------
+    // ------------------ YUV_420_888 -> NV21 ------------------
     private static byte[] yuvToNV21(Image img) {
         try {
-            int w = img.getWidth(), h = img.getHeight();
+            int w = img.getWidth();
+            int h = img.getHeight();
             Image.Plane[] p = img.getPlanes();
 
             ByteBuffer Y = p[0].getBuffer();
@@ -82,65 +86,71 @@ public class HookEntry implements IXposedHookLoadPackage {
             int uRow = p[1].getRowStride();
             int vRow = p[2].getRowStride();
 
-            byte[] out = new byte[w*h*3/2];
-            int pos=0;
+            byte[] out = new byte[w * h * 3 / 2];
+            int pos = 0;
 
-            for(int i=0;i<h;i++){
-                Y.position(i*yRow);
-                Y.get(out,pos,w);
-                pos+=w;
+            // копируем Y
+            for (int i = 0; i < h; i++) {
+                Y.position(i * yRow);
+                Y.get(out, pos, w);
+                pos += w;
             }
-            for(int i=0;i<h/2;i++){
-                for(int j=0;j<w/2;j++){
-                    U.position(i*uRow + j*2);
-                    V.position(i*vRow + j*2);
+
+            // UV (VU для NV21)
+            for (int i = 0; i < h / 2; i++) {
+                for (int j = 0; j < w / 2; j++) {
+                    U.position(i * uRow + j * 2);
+                    V.position(i * vRow + j * 2);
                     out[pos++] = V.get();
                     out[pos++] = U.get();
                 }
             }
-            return out;
 
-        }catch(Throwable e){
-            XposedBridge.log("NV21 ERR "+e);
+            return out;
+        } catch (Throwable e) {
+            XposedBridge.log("NV21 ERR " + e);
             return null;
         }
     }
 
     // ------------------ NV21 -> JPEG -> scale 1280x720 ------------------
-    private static byte[] resizeNV21(byte[] nv,int w,int h){
-        try{
-            android.graphics.YuvImage yuv=new android.graphics.YuvImage(nv,ImageFormat.NV21,w,h,null);
-            ByteArrayOutputStream os=new ByteArrayOutputStream();
-            yuv.compressToJpeg(new Rect(0,0,w,h),90,os);
-            byte[] jpg=os.toByteArray();
+    private static byte[] resizeNV21(byte[] nv, int w, int h) {
+        try {
+            android.graphics.YuvImage yuv =
+                    new android.graphics.YuvImage(nv, ImageFormat.NV21, w, h, null);
+            ByteArrayOutputStream os = new ByteArrayOutputStream();
+            yuv.compressToJpeg(new Rect(0, 0, w, h), 90, os);
+            byte[] jpg = os.toByteArray();
 
-            Bitmap bmp = BitmapFactory.decodeByteArray(jpg,0,jpg.length);
-            Bitmap out = Bitmap.createScaledBitmap(bmp,1280,720,true);
+            Bitmap bmp = BitmapFactory.decodeByteArray(jpg, 0, jpg.length);
+            if (bmp == null) return null;
 
-            ByteArrayOutputStream r=new ByteArrayOutputStream();
-            out.compress(Bitmap.CompressFormat.JPEG,90,r);
+            Bitmap out = Bitmap.createScaledBitmap(bmp, 1280, 720, true);
+
+            ByteArrayOutputStream r = new ByteArrayOutputStream();
+            out.compress(Bitmap.CompressFormat.JPEG, 90, r);
+
             return r.toByteArray();
-
-        }catch(Throwable e){
-            XposedBridge.log("resizeNV21 ERR "+e);
+        } catch (Throwable e) {
+            XposedBridge.log("resizeNV21 ERR " + e);
             return null;
         }
     }
 
-    // ------------------ PRIVATE -> Bitmap -> Resize 1280x720 ------------------
-    private static Bitmap privateResize(Image img){
-        try{
+    // ------------------ PRIVATE -> HardwareBuffer -> Bitmap -> scale 1280x720 ------------------
+    private static Bitmap privateResize(Image img) {
+        try {
             HardwareBuffer hb = img.getHardwareBuffer();
             if (hb == null) return null;
 
             ColorSpace cs = ColorSpace.get(ColorSpace.Named.SRGB);
-            Bitmap src = Bitmap.wrapHardwareBuffer(hb, android.graphics.PixelFormat.RGBA_8888, cs);
-            if(src==null)return null;
+            // ВАЖНО: у wrapHardwareBuffer только 2 аргумента: HardwareBuffer и ColorSpace
+            Bitmap src = Bitmap.wrapHardwareBuffer(hb, cs);
+            if (src == null) return null;
 
-            return Bitmap.createScaledBitmap(src,1280,720,true);
-
-        }catch(Throwable e){
-            XposedBridge.log("private ERR "+e);
+            return Bitmap.createScaledBitmap(src, 1280, 720, true);
+        } catch (Throwable e) {
+            XposedBridge.log("private ERR " + e);
             return null;
         }
     }
