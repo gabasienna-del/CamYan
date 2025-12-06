@@ -4,7 +4,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
 import android.media.Image;
-import android.media.ImageReader;
+
 import java.io.File;
 import java.nio.ByteBuffer;
 
@@ -23,18 +23,54 @@ public class HookEntry implements IXposedHookLoadPackage {
 
         XposedBridge.log(TAG + ": Loaded " + lpparam.packageName);
 
+
+        // ---------------- CameraX ImageProxy Hook ----------------
+        try {
+
+            Class<?> imageProxy = XposedHelpers.findClass(
+                "androidx.camera.core.ImageProxy",
+                lpparam.classLoader
+            );
+
+            XposedHelpers.findAndHookMethod(
+                imageProxy,
+                "getPlanes",
+                new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) {
+
+                        Object[] planes = (Object[]) param.getResult();
+                        if (planes == null || planes.length == 0) return;
+
+                        XposedBridge.log(TAG + ": CameraX frame OK — planes captured");
+
+                        try {
+                            Image img = (Image) XposedHelpers.callMethod(param.thisObject, "getImage");
+                            if (img != null) replace(img);
+                        } catch (Throwable ignore) {}
+
+                    }
+                });
+
+            XposedBridge.log(TAG + ": CameraX ImageProxy hook OK");
+
+        } catch (Throwable t) {
+            XposedBridge.log(TAG + ": No CameraX ImageProxy");
+        }
+
+
+        // ---------------- ImageReader fallback ----------------
         try {
             Class<?> imageReaderClass = XposedHelpers.findClass(
-                "android.media.ImageReader", lpparam.classLoader);
-
-            XposedBridge.log(TAG + ": ImageReader hook OK");
+                "android.media.ImageReader",
+                lpparam.classLoader);
 
             XposedHelpers.findAndHookMethod(imageReaderClass, "acquireLatestImage",
                 new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) {
                         Image img = (Image) param.getResult();
-                        if (img != null) replaceImage(img);
+                        if (img != null) replace(img);
                     }
                 });
 
@@ -43,81 +79,71 @@ public class HookEntry implements IXposedHookLoadPackage {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) {
                         Image img = (Image) param.getResult();
-                        if (img != null) replaceImage(img);
+                        if (img != null) replace(img);
                     }
                 });
 
-        } catch (Throwable ignored) {}
-
-        try {
-            Class<?> analyzer = XposedHelpers.findClass(
-                "androidx.camera.core.ImageAnalysis$Analyzer",
-                lpparam.classLoader
-            );
-
-            XposedBridge.log(TAG + ": CameraX Analyzer FOUND");
-
-            XposedHelpers.findAndHookMethod(
-                analyzer,
-                "analyze",
-                "androidx.camera.core.ImageProxy",
-                new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam param) {
-                        XposedBridge.log(TAG + ": CameraX frame intercepted");
-                    }
-                }
-            );
+            XposedBridge.log(TAG + ": ImageReader hook OK");
 
         } catch (Throwable ignored) {}
     }
 
-    private void replaceImage(Image img){
-        if (img.getFormat() != ImageFormat.YUV_420_888) return;
+
+    // -------- подмена кадра --------
+    private void replace(Image img){
+
+        if (img.getFormat() != ImageFormat.YUV_420_888) {
+            XposedBridge.log(TAG + ": Frame format not YUV_420_888");
+            return;
+        }
 
         File f = new File("/sdcard/Eskukap/fake.jpg");
-        if (!f.exists()) return;
+        if (!f.exists()) {
+            XposedBridge.log(TAG + ": fake.jpg not found");
+            return;
+        }
 
         Bitmap bmp = BitmapFactory.decodeFile(f.getAbsolutePath());
         if (bmp == null) return;
 
         int w = img.getWidth(), h = img.getHeight();
-        if (bmp.getWidth() != w || bmp.getHeight() != h)
-            bmp = Bitmap.createScaledBitmap(bmp, w, h, true);
 
-        byte[] data = bitmapToNV21(bmp, w, h);
-        if (data != null) writeNV21(img, data, w, h);
+        if (bmp.getWidth()!=w || bmp.getHeight()!=h)
+            bmp = Bitmap.createScaledBitmap(bmp,w,h,true);
 
-        XposedBridge.log(TAG + ": FRAME REPLACED -> fake.jpg");
+        byte[] nv21 = toNV21(bmp,w,h);
+        if (nv21!=null) write(img,nv21,w,h);
+
+        XposedBridge.log(TAG + ": FRAME REPLACED");
     }
 
-    private byte[] bitmapToNV21(Bitmap bmp, int w, int h){
-        int[] argb = new int[w*h];
-        bmp.getPixels(argb,0,w,0,0,w,h);
-        byte[] yuv = new byte[w*h*3/2];
-        int frame=w*h, y=0,uv=frame;
+
+    private byte[] toNV21(Bitmap bmp,int w,int h){
+        int[] a=new int[w*h];
+        bmp.getPixels(a,0,w,0,0,w,h);
+        byte[] yuv=new byte[w*h*3/2]; int frame=w*h,y=0,uv=frame;
 
         for(int j=0;j<h;j++){
             for(int i=0;i<w;i++){
-                int c=argb[j*w+i];
-                int R=(c>>16)&255, G=(c>>8)&255, B=c&255;
+                int c=a[j*w+i];
+                int R=(c>>16)&255,G=(c>>8)&255,B=c&255;
                 int Y=((66*R+129*G+25*B+128)>>8)+16;
                 int U=((-38*R-74*G+112*B+128)>>8)+128;
                 int V=((112*R-94*G-18*B+128)>>8)+128;
-                yuv[y++]=(byte)limit(Y);
-                if(j%2==0 && i%2==0){
-                    yuv[uv++]=(byte)limit(V);
-                    yuv[uv++]=(byte)limit(U);
+                yuv[y++]=(byte)clip(Y);
+                if(j%2==0&&i%2==0){
+                    yuv[uv++]=(byte)clip(V);
+                    yuv[uv++]=(byte)clip(U);
                 }
             }
-        }
-        return yuv;
+        } return yuv;
     }
 
-    private int limit(int v){return v<0?0:v>255?255:v;}
+    private int clip(int v){return v<0?0:v>255?255:v;}
 
-    private void writeNV21(Image img, byte[] nv21, int w, int h){
-        Image.Plane[] p=img.getPlanes();
+    private void write(Image img,byte[] nv21,int w,int h){
+        Image.Plane[]p=img.getPlanes();
+
         ByteBuffer Y=p[0].getBuffer();
         int rs=p[0].getRowStride();
         for(int r=0;r<h;r++){
@@ -125,17 +151,16 @@ public class HookEntry implements IXposedHookLoadPackage {
             Y.put(nv21,r*w,w);
         }
 
-        ByteBuffer U=p[1].getBuffer(), V=p[2].getBuffer();
-        int rsU=p[1].getRowStride(), psU=p[1].getPixelStride();
-        int rsV=p[2].getRowStride(), psV=p[2].getPixelStride();
+        ByteBuffer U=p[1].getBuffer(),V=p[2].getBuffer();
+        int rsU=p[1].getRowStride(),psU=p[1].getPixelStride();
+        int rsV=p[2].getRowStride(),psV=p[2].getPixelStride();
+        int uv=w*h;
 
-        int uvStart=w*h;
-        for(int j=0;j<h/2;j++){
+        for(int j=0;j<h/2;j++)
             for(int i=0;i<w/2;i++){
-                int idx=uvStart+j*w+i*2;
+                int idx=uv+j*w+i*2;
                 U.put(j*rsU+i*psU, nv21[idx+1]);
                 V.put(j*rsV+i*psV, nv21[idx]);
             }
-        }
     }
 }
