@@ -1,5 +1,5 @@
 plugins {
-    id 'com.android.library' version '8.1.0'
+    id 'com.android.application' version '8.1.0'
 }
 
 android {
@@ -7,8 +7,12 @@ android {
     compileSdk 34
 
     defaultConfig {
+        applicationId "com.gaba.eskukap"
         minSdk 24
-        consumerProguardFiles 'proguard-rules.pro'
+        targetSdk 34
+
+        versionCode 1
+        versionName "1.0"
     }
 
     compileOptions {
@@ -17,11 +21,18 @@ android {
     }
 
     buildTypes {
-        debug { debuggable true }
-        release { minifyEnabled false }
+        debug {
+            debuggable true
+            minifyEnabled false
+        }
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
     }
 }
 
 dependencies {
+    // Xposed API только для компиляции, в apk не попадает
     compileOnly 'de.robv.android.xposed:api:82'
 }
