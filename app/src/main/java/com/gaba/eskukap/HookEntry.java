@@ -8,6 +8,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Environment;
 import android.util.DisplayMetrics;
+import android.view.View;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -20,72 +21,63 @@ import de.robv.android.xposed.XC_MethodHook;
 
 public class HookEntry implements IXposedHookLoadPackage {
 
-    private int frame = 0;
+    int frame = 0;
 
     @Override
     public void handleLoadPackage(LoadPackageParam lpparam) throws Throwable {
 
         if (!lpparam.packageName.contains("taximeter")) return;
-        XposedBridge.log("Eskukap PixelCopy Window Hook Loaded for " + lpparam.packageName);
+
+        XposedBridge.log("Eskukap PixelCopy DELAY Hook Loaded " + lpparam.packageName);
 
         XposedHelpers.findAndHookMethod(
-                "android.app.Activity",
-                lpparam.classLoader,
-                "onResume",
-                new XC_MethodHook() {
-                    @Override
-                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                        final Activity act = (Activity) param.thisObject;
+            "android.app.Activity", lpparam.classLoader, "onWindowFocusChanged", boolean.class,
+            new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) {
+                    boolean hasFocus = (boolean) param.args[0];
+                    Activity act = (Activity) param.thisObject;
+                    if (!hasFocus) return;
+
+                    new Handler(Looper.getMainLooper()).postDelayed(() -> {
 
                         try {
-                            // размеры экрана
                             DisplayMetrics dm = act.getResources().getDisplayMetrics();
                             int width = dm.widthPixels;
                             int height = dm.heightPixels;
 
-                            final Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-                            final Window window = act.getWindow();
-                            final Handler handler = new Handler(Looper.getMainLooper());
+                            Bitmap bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+                            Window win = act.getWindow();
 
-                            XposedBridge.log("Eskukap: Start PixelCopy for window " +
-                                    width + "x" + height);
+                            XposedBridge.log("Eskukap PixelCopy TRY after UI, size = "+width+"x"+height);
 
-                            PixelCopy.request(
-                                    window,
-                                    bitmap,
-                                    new PixelCopy.OnPixelCopyFinishedListener() {
-                                        @Override
-                                        public void onPixelCopyFinished(int result) {
-                                            if (result == PixelCopy.SUCCESS) {
-                                                try {
-                                                    File dir = new File(Environment.getExternalStorageDirectory()
-                                                            + "/Eskukap");
-                                                    //noinspection ResultOfMethodCallIgnored
-                                                    dir.mkdirs();
-                                                    File file = new File(dir, "frame_" + (frame++) + ".jpg");
+                            PixelCopy.request(win, bmp, result -> {
+                                if (result == PixelCopy.SUCCESS) {
+                                    try {
+                                        File dir = new File(Environment.getExternalStorageDirectory()+"/Eskukap");
+                                        dir.mkdirs();
+                                        File f = new File(dir,"frame_"+(frame++)+".jpg");
 
-                                                    FileOutputStream fos = new FileOutputStream(file);
-                                                    bitmap.compress(Bitmap.CompressFormat.JPEG, 90, fos);
-                                                    fos.close();
+                                        FileOutputStream fos = new FileOutputStream(f);
+                                        bmp.compress(Bitmap.CompressFormat.JPEG,90,fos);
+                                        fos.close();
 
-                                                    XposedBridge.log("Eskukap: Saved frame to " +
-                                                            file.getAbsolutePath());
-                                                } catch (Throwable e) {
-                                                    XposedBridge.log("Eskukap: Save error " + e);
-                                                }
-                                            } else {
-                                                XposedBridge.log("Eskukap: PixelCopy failed, code=" + result);
-                                            }
-                                        }
-                                    },
-                                    handler
-                            );
+                                        XposedBridge.log("Eskukap SAVED → "+f.getAbsolutePath());
+                                    } catch (Exception e) {
+                                        XposedBridge.log("Eskukap Save ERR: "+e);
+                                    }
+                                } else {
+                                    XposedBridge.log("Eskukap PixelCopy FAIL code="+result);
+                                }
+                            }, new Handler(Looper.getMainLooper()));
 
-                        } catch (Throwable e) {
-                            XposedBridge.log("Eskukap: PixelCopy hook error " + e);
+                        } catch (Exception e){
+                            XposedBridge.log("Eskukap ERR: "+e);
                         }
-                    }
+
+                    }, 2000); // ждём 2 секунды после появления UI
                 }
+            }
         );
     }
 }
