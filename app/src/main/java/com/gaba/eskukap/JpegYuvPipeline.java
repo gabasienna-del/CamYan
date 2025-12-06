@@ -57,7 +57,6 @@ public class JpegYuvPipeline {
 
                 yuv[yIndex++] = (byte) clamp(y);
                 if ((j % 2 == 0) && (i % 2 == 0)) {
-                    // 4:2:0 subsample
                     yuv[uIndex++] = (byte) clamp(u);
                     yuv[vIndex++] = (byte) clamp(v);
                 }
@@ -74,7 +73,7 @@ public class JpegYuvPipeline {
         return v;
     }
 
-    // ===== YUV420 (I420) → MediaCodec (например H.264 энкодер) =====
+    // ===== YUV420 (I420) → MediaCodec =====
     public static void queueYuvToMediaCodec(MediaCodec codec, byte[] yuv420, long ptsUs) {
         if (codec == null || yuv420 == null) {
             return;
@@ -100,7 +99,6 @@ public class JpegYuvPipeline {
     }
 
     // ===== YUV420 (I420) → ImageReader через ImageWriter =====
-    // reader должен быть создан с ImageFormat.YUV_420_888 и нужным width/height
     public static void pushYuvToImageReader(ImageReader reader, byte[] yuv420, int width, int height) {
         if (reader == null || yuv420 == null) {
             return;
@@ -124,16 +122,24 @@ public class JpegYuvPipeline {
             }
 
             fillImageWithI420(image, yuv420, width, height);
-
-            // В нормальном коде image и writer надо закрывать,
-            // но по твоей просьбе — не закрываем здесь.
             writer.queueInputImage(image);
 
         } catch (Exception e) {
             Log.e(TAG, "pushYuvToImageReader error", e);
         } finally {
-            // if (image != null) image.close();
-            // if (writer != null) writer.close();
+            // по твоей просьбе: без image.close() и writer.close()
+        }
+    }
+
+    // === НОВОЕ: перезаписать существующий Image (из ImageReader) нашим I420 ===
+    public static void overwriteImageWithI420(Image image, byte[] yuv420, int width, int height) {
+        if (image == null || yuv420 == null) {
+            return;
+        }
+        try {
+            fillImageWithI420(image, yuv420, width, height);
+        } catch (Exception e) {
+            Log.e(TAG, "overwriteImageWithI420 error", e);
         }
     }
 
@@ -152,38 +158,11 @@ public class JpegYuvPipeline {
         int uOffset = frameSize;
         int vOffset = frameSize + qFrameSize;
 
-        // Plane 0: Y
-        copyToPlane(
-                planes[0],
-                yuv420,
-                yOffset,
-                width,
-                height,
-                1
-        );
-
-        // Plane 1: U (4:2:0)
-        copyToPlane(
-                planes[1],
-                yuv420,
-                uOffset,
-                width / 2,
-                height / 2,
-                1
-        );
-
-        // Plane 2: V (4:2:0)
-        copyToPlane(
-                planes[2],
-                yuv420,
-                vOffset,
-                width / 2,
-                height / 2,
-                1
-        );
+        copyToPlane(planes[0], yuv420, yOffset, width, height, 1);
+        copyToPlane(planes[1], yuv420, uOffset, width / 2, height / 2, 1);
+        copyToPlane(planes[2], yuv420, vOffset, width / 2, height / 2, 1);
     }
 
-    // Универсальная копия, учитываем rowStride и pixelStride
     private static void copyToPlane(
             Image.Plane plane,
             byte[] src,
@@ -198,7 +177,6 @@ public class JpegYuvPipeline {
 
         buffer.rewind();
 
-        // Если pixelStride == 1 и rowStride == planeWidth — можно копнуть блоком
         if (pixelStride == 1 && rowStride == planeWidth) {
             buffer.put(src, srcOffset, planeWidth * planeHeight * srcPixelStride);
             return;
@@ -216,14 +194,12 @@ public class JpegYuvPipeline {
                 buffer.put(src[srcIndex]);
                 srcIndex += srcPixelStride;
 
-                // сдвигаемся внутри строки по pixelStride
                 if (pixelStride > 1 && col < planeWidth - 1) {
                     int pos = rowStart + col * pixelStride;
                     buffer.position(pos);
                 }
             }
 
-            // конец строки — переходим на следующий rowStride
             int nextRowPos = rowStart + rowStride;
             buffer.position(nextRowPos);
         }
