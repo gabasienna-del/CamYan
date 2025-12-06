@@ -1,52 +1,29 @@
 package com.gaba.eskukap;
 
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.media.Image;
-import android.util.Log;
+import android.content.Intent;
 
 import de.robv.android.xposed.XC_MethodHook;
-import java.io.File;
-import java.nio.ByteBuffer;
+import de.robv.android.xposed.XposedBridge;
+import de.robv.android.xposed.XposedHelpers;
+import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
-public class CameraHook extends XC_MethodHook {
+public class CameraHook {
 
-    @Override
-    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-        Image img = (Image) param.getResult();
-        if (img == null) {
-            Log.e("EskukapCamera", "No image result");
-            return;
-        }
+    public static void hook(final XC_LoadPackage.LoadPackageParam lpparam) {
+        XposedBridge.log("Eskukap: loaded " + lpparam.packageName);
 
-        Log.i("EskukapCamera", "Frame intercepted!");
-
-        // ======== путь к подменяемому фото =========
-        File fakeFile = new File("/sdcard/fake.jpg");
-        if (!fakeFile.exists()) {
-            Log.e("EskukapCamera", "fake.jpg not found in /sdcard");
-            return;
-        }
-
-        Bitmap fake = BitmapFactory.decodeFile(fakeFile.getAbsolutePath());
-        if (fake == null) {
-            Log.e("EskukapCamera", "Failed to decode fake image");
-            return;
-        }
-
-        // Замена байтов
-        Image.Plane[] planes = img.getPlanes();
-        ByteBuffer buffer = planes[0].getBuffer();
-        byte[] data = new byte[buffer.remaining()];
-        buffer.get(data);
-
-        Bitmap resized = Bitmap.createScaledBitmap(fake, img.getWidth(), img.getHeight(), false);
-        ByteBuffer fakeBuffer = ByteBuffer.allocate(data.length);
-        resized.copyPixelsToBuffer(fakeBuffer);
-
-        buffer.rewind();
-        buffer.put(fakeBuffer.array(), 0, data.length);
-
-        Log.i("EskukapCamera", "Frame replaced ✔");
+        // Пример: логировать onActivityResult во всех Activity
+        XposedHelpers.findAndHookMethod(
+                "android.app.Activity",
+                lpparam.classLoader,
+                "onActivityResult",
+                int.class, int.class, Intent.class,
+                new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                        XposedBridge.log("Eskukap: onActivityResult " + lpparam.packageName);
+                    }
+                }
+        );
     }
 }

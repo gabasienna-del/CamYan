@@ -8,23 +8,33 @@ android {
 
     defaultConfig {
         applicationId "com.gaba.eskukap"
-        minSdk 24
+        minSdk 21
         targetSdk 34
         versionCode 1
         versionName "1.0"
     }
 
+    buildFeatures {
+        buildConfig true
+    }
+
     buildTypes {
-        release { minifyEnabled false }
-        debug  { minifyEnabled false }
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 }
 
 dependencies {
-    // UI + настройки
-    implementation 'androidx.appcompat:appcompat:1.6.1'
-    implementation 'androidx.preference:preference:1.2.1'
-
-    // Xposed API – только compileOnly, через локальный JAR
-    compileOnly files('libs/api-82.jar')
+    // Только для компиляции, в APK не входит
+    compileOnly 'de.robv.android.xposed:api:82'
 }
