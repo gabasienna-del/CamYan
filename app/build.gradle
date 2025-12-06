@@ -1,5 +1,5 @@
 plugins {
-    id 'com.android.library'
+    id 'com.android.library' version '8.1.0'
 }
 
 android {
@@ -8,7 +8,6 @@ android {
 
     defaultConfig {
         minSdk 24
-        targetSdk 34
         consumerProguardFiles 'proguard-rules.pro'
     }
 
@@ -18,10 +17,8 @@ android {
     }
 
     buildTypes {
-        release {
-            minifyEnabled false
-        }
         debug { debuggable true }
+        release { minifyEnabled false }
     }
 }
 
