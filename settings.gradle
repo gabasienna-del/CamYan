@@ -1,2 +1,14 @@
-include ':app'
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+        maven { url 'https://api.xposed.info/' }
+    }
+    plugins {
+        id 'com.android.application' version '8.6.0'
+    }
+}
+
 rootProject.name = "CamYan"
+include(":app")
