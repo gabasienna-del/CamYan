@@ -1,39 +1,28 @@
-<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.gaba.eskukap">
 
     <application
-        android:allowBackup="true"
-        android:label="CamYan"
-        android:theme="@style/Theme.CamYan">
+        android:allowBackup="false"
+        android:supportsRtl="true"
+        android:label="Eskukap">
 
-        <!-- Xposed / LSPosed метаданные -->
         <meta-data
             android:name="xposedmodule"
-            android:value="true" />
+            android:value="true"/>
+
         <meta-data
             android:name="xposeddescription"
-            android:value="CamYan camera hook module" />
+            android:value="Eskukap camera hook"/>
+
         <meta-data
             android:name="xposedminversion"
-            android:value="93" />
+            android:value="93"/>
 
-        <!-- Наши настройки модуля -->
+        <!-- Активность настроек модуля -->
         <activity
-            android:name=".SettingsActivity"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="de.robv.android.xposed.category.MODULE_SETTINGS" />
-            </intent-filter>
-        </activity>
+            android:name="com.gaba.eskukap.SettingsActivity"
+            android:exported="true"
+            android:label="Eskukap Settings"/>
 
-    <activity android:name="com.gaba.eskukap.SettingsActivity" android:exported="true" android:label="Eskukap Settings"/> </application>
-
+    </application>
 </manifest>
-
-    <!-- Настройки модуля -->
-    <activity
-        android:name="com.gaba.eskukap.SettingsActivity"
-        android:exported="true"
-        android:label="Eskukap Settings"/>
