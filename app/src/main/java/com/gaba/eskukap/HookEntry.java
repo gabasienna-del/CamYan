@@ -7,6 +7,8 @@ import android.graphics.BitmapFactory;
 import android.media.Image;
 import android.media.ImageReader;
 import android.os.Build;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.view.PixelCopy;
 import android.view.Surface;
 import android.graphics.SurfaceTexture;
@@ -35,6 +37,7 @@ public class HookEntry implements IXposedHookLoadPackage {
                 new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+
                         Image image = (Image) param.getResult();
                         if (image == null) return;
 
@@ -44,34 +47,33 @@ public class HookEntry implements IXposedHookLoadPackage {
 
                         XposedBridge.log("Eskukap: Frame "+w+"x"+h+" fmt="+fmt);
 
-                        // ========== NORMAL YUV (decode instantly) ==========
-                        if (fmt == ImageFormat.YUV_420_888) {
-                            byte[] nv21 = yuvToNV21(image);
-                            if(nv21!=null){
-                                byte[] out = scaleNV21(nv21,w,h);
-                                if(out!=null)
-                                    XposedBridge.log("Eskukap: YUV scaled 1280x720 ✓");
+                        // YUV -> scale OK
+                        if(fmt == ImageFormat.YUV_420_888){
+                            byte[] nv = yuvToNV21(image);
+                            if(nv!=null){
+                                byte[] scaled = scaleNV21(nv,w,h);
+                                if(scaled!=null) XposedBridge.log("Eskukap: YUV scaled 1280x720 ✓");
                             }
                         }
 
-                        // ========== PRIVATE / HARDWARE GPU BUFFER ==========
-                        if (fmt == 256 && Build.VERSION.SDK_INT>=26) {
-                            Bitmap bmp = privateCopy(image,w,h);
+                        // PRIVATE -> PixelCopy -> scale OK
+                        if(fmt == 256 && Build.VERSION.SDK_INT>=26){
+                            Bitmap bmp = privateCopyToBitmap(image,w,h);
                             if(bmp!=null){
-                                Bitmap out = Bitmap.createScaledBitmap(bmp,1280,720,true);
-                                XposedBridge.log("Eskukap: PRIVATE → Bitmap → scaled ✓");
+                                Bitmap scaled = Bitmap.createScaledBitmap(bmp,1280,720,true);
+                                XposedBridge.log("Eskukap: PRIVATE → Bitmap → scaled 1280x720 ✓");
                             }
                         }
                     }
                 }
             );
-        } catch (Throwable e) {
-            XposedBridge.log("EskukapHook ERROR: "+e);
+        } catch(Exception e){
+            XposedBridge.log("EskukapHook ERROR "+e);
         }
     }
 
-    // ----------- PRIVATE → Bitmap via PixelCopy (GPU safe method) -----------
-    private Bitmap privateCopy(Image img,int w,int h){
+    // ------------------ PRIVATE → Bitmap через PixelCopy ------------------
+    private Bitmap privateCopyToBitmap(Image img,int w,int h){
         try{
             SurfaceTexture tex = new SurfaceTexture(0);
             tex.setDefaultBufferSize(w,h);
@@ -79,19 +81,25 @@ public class HookEntry implements IXposedHookLoadPackage {
 
             Bitmap bmp = Bitmap.createBitmap(w,h, Bitmap.Config.ARGB_8888);
 
+            HandlerThread th = new HandlerThread("pixcopy");
+            th.start();
+            Handler handler = new Handler(th.getLooper());
+
             final Object lock=new Object();
-            final boolean[] done={false};
+            final boolean[] ok={false};
 
-            PixelCopy.request(surf, bmp, (r)->{
-                synchronized(lock){done[0]=true;lock.notify();}
-            }, null);
+            PixelCopy.request(surf,bmp,(res)->{
+                ok[0]= (res==PixelCopy.SUCCESS);
+                synchronized(lock){lock.notify();}
+            }, handler);
 
-            synchronized(lock){lock.wait(80);}
+            synchronized(lock){lock.wait(100);}
 
             surf.release();
             tex.release();
+            th.quitSafely();
 
-            return done[0]?bmp:null;
+            return ok[0]? bmp:null;
 
         }catch(Throwable e){
             XposedBridge.log("Eskukap: PixelCopy ERR "+e);
@@ -99,7 +107,7 @@ public class HookEntry implements IXposedHookLoadPackage {
         }
     }
 
-    // ------------------ YUV -> NV21 ------------------
+    // ----------- YUV → NV21 -----------
     private static byte[] yuvToNV21(Image img){
         try{
             int w=img.getWidth(),h=img.getHeight();
@@ -113,32 +121,35 @@ public class HookEntry implements IXposedHookLoadPackage {
             int uRow=p[1].getRowStride();
             int vRow=p[2].getRowStride();
 
-            byte[]out=new byte[w*h*3/2];int pos=0;
+            byte[] out=new byte[w*h*3/2];
+            int pos=0;
 
             for(int i=0;i<h;i++){Y.position(i*yRow);Y.get(out,pos,w);pos+=w;}
             for(int i=0;i<h/2;i++)
                 for(int j=0;j<w/2;j++){
                     U.position(i*uRow+j*2);
                     V.position(i*vRow+j*2);
-                    out[pos++]=V.get();out[pos++]=U.get();
+                    out[pos++]=V.get(); out[pos++]=U.get();
                 }
+
             return out;
 
         }catch(Exception e){return null;}
     }
 
-    // =============== NV21 → JPEG → scale ===============
+    // ----------- NV21 → JPEG → resize -----------
     private static byte[] scaleNV21(byte[]nv,int w,int h){
         try{
             android.graphics.YuvImage y=new android.graphics.YuvImage(nv,ImageFormat.NV21,w,h,null);
             ByteArrayOutputStream os=new ByteArrayOutputStream();
             y.compressToJpeg(new Rect(0,0,w,h),90,os);
             byte[]jpg=os.toByteArray();
-            Bitmap b=BitmapFactory.decodeByteArray(jpg,0,jpg.length);
-            Bitmap o=Bitmap.createScaledBitmap(b,1280,720,true);
+
+            Bitmap bmp=BitmapFactory.decodeByteArray(jpg,0,jpg.length);
+            Bitmap out=Bitmap.createScaledBitmap(bmp,1280,720,true);
 
             ByteArrayOutputStream r=new ByteArrayOutputStream();
-            o.compress(Bitmap.CompressFormat.JPEG,90,r);
+            out.compress(Bitmap.CompressFormat.JPEG,90,r);
             return r.toByteArray();
 
         }catch(Exception e){return null;}
