@@ -23,7 +23,6 @@ public class HookEntry implements IXposedHookLoadPackage {
 
         XposedBridge.log(TAG + ": Loaded " + lpparam.packageName);
 
-        // ---------------- ImageReader hook (если приложения использует Camera2) ----------------
         try {
             Class<?> imageReaderClass = XposedHelpers.findClass(
                 "android.media.ImageReader", lpparam.classLoader);
@@ -48,12 +47,8 @@ public class HookEntry implements IXposedHookLoadPackage {
                     }
                 });
 
-        } catch (Throwable e) {
-            XposedBridge.log(TAG + " ImageReader hook FAIL: " + e);
-        }
+        } catch (Throwable ignored) {}
 
-
-        // ---------------- CameraX hook (ru.yandex.taximeter вероятно использует этот путь) ----------------
         try {
             Class<?> analyzer = XposedHelpers.findClass(
                 "androidx.camera.core.ImageAnalysis$Analyzer",
@@ -70,17 +65,13 @@ public class HookEntry implements IXposedHookLoadPackage {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) {
                         XposedBridge.log(TAG + ": CameraX frame intercepted");
-                        // здесь позже добавим ПОДМЕНУ кадра
                     }
                 }
             );
 
-        } catch (Throwable e) {
-            XposedBridge.log(TAG + ": CameraX not present: " + e);
-        }
+        } catch (Throwable ignored) {}
     }
 
-    // ------------------------- Подмена YUV кадра (работает через ImageReader) -------------------------
     private void replaceImage(Image img){
         if (img.getFormat() != ImageFormat.YUV_420_888) return;
 
@@ -113,18 +104,17 @@ public class HookEntry implements IXposedHookLoadPackage {
                 int Y=((66*R+129*G+25*B+128)>>8)+16;
                 int U=((-38*R-74*G+112*B+128)>>8)+128;
                 int V=((112*R-94*G-18*B+128)>>8)+128;
-
-                yuv[y++]=(byte)cl(Y);
+                yuv[y++]=(byte)limit(Y);
                 if(j%2==0 && i%2==0){
-                    yuv[uv++]=(byte)cl(V);
-                    yuv[uv++]=(byte)cl(U);
+                    yuv[uv++]=(byte)limit(V);
+                    yuv[uv++]=(byte)limit(U);
                 }
             }
         }
         return yuv;
     }
 
-    private int cl(int v){return v<0?0:v>255?255:v;}
+    private int limit(int v){return v<0?0:v>255?255:v;}
 
     private void writeNV21(Image img, byte[] nv21, int w, int h){
         Image.Plane[] p=img.getPlanes();
