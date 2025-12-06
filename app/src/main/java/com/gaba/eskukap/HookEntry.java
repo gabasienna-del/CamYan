@@ -12,7 +12,6 @@ import android.net.Uri;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 
-import de.robv.android.xposed.AndroidAppHelper;
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
@@ -24,7 +23,7 @@ public class HookEntry implements IXposedHookLoadPackage {
     @Override
     public void handleLoadPackage(final XC_LoadPackage.LoadPackageParam lpparam) {
 
-        if (!"ru.yandex.taximeter".equals(lpparam.packageName)) return;
+        if (!lpparam.packageName.equals("ru.yandex.taximeter")) return;
         XposedBridge.log("EskukapHook: Loaded ru.yandex.taximeter");
 
         try {
@@ -38,165 +37,116 @@ public class HookEntry implements IXposedHookLoadPackage {
                             if (image == null) return;
 
                             int fmt = image.getFormat();
-                            int w   = image.getWidth();
-                            int h   = image.getHeight();
+                            int w = image.getWidth(), h = image.getHeight();
 
-                            XposedBridge.log("Eskukap: Frame " + w + "x" + h + " fmt=" + fmt);
+                            XposedBridge.log("Eskukap: Frame "+w+"x"+h+" fmt="+fmt);
 
-                            // --- PRIVATE пока не трогаем, только лог ---
-                            if (fmt == 256) {
-                                XposedBridge.log("Eskukap: PRIVATE frame, keep as is (already " + w + "x" + h + ")");
+                            // PRIVATE не трогаем
+                            if (fmt == 256) return;
+                            if (fmt != ImageFormat.YUV_420_888) return;
+
+                            Context ctx = getContext();
+                            if (ctx == null) {
+                                XposedBridge.log("Eskukap: ctx null");
                                 return;
                             }
 
-                            if (fmt != ImageFormat.YUV_420_888) {
-                                XposedBridge.log("Eskukap: Unsupported format for replace: " + fmt);
-                                return;
-                            }
+                            SharedPreferences sp = ctx.getSharedPreferences("eskukap", Context.MODE_PRIVATE);
+                            String uriStr = sp.getString("img", null);
+                            if (uriStr == null) return;
 
-                            try {
-                                Context ctx = AndroidAppHelper.currentApplication();
-                                if (ctx == null) {
-                                    XposedBridge.log("Eskukap: no app context");
-                                    return;
-                                }
+                            Bitmap bmp = loadBitmap(ctx, Uri.parse(uriStr));
+                            if (bmp == null) return;
 
-                                SharedPreferences sp = ctx.getSharedPreferences("eskukap", Context.MODE_PRIVATE);
-                                String uriStr = sp.getString("img", null);
-                                if (uriStr == null) {
-                                    XposedBridge.log("Eskukap: no jpeg selected in settings");
-                                    return;
-                                }
-
-                                Uri uri = Uri.parse(uriStr);
-                                Bitmap src = loadBitmapFromUri(ctx, uri);
-                                if (src == null) {
-                                    XposedBridge.log("Eskukap: cannot load bitmap from uri");
-                                    return;
-                                }
-
-                                Bitmap scaled = Bitmap.createScaledBitmap(src, w, h, true);
-                                replaceImageWithBitmap(image, scaled);
-                                XposedBridge.log("Eskukap: frame replaced from JPEG");
-                            } catch (Throwable e) {
-                                XposedBridge.log("Eskukap REPLACE ERR: " + e);
-                            }
+                            Bitmap scaled = Bitmap.createScaledBitmap(bmp, w, h, true);
+                            replace(image, scaled);
+                            XposedBridge.log("Eskukap: frame replaced!");
                         }
-                    }
-            );
+                    });
         } catch (Throwable e) {
-            XposedBridge.log("EskukapHook IMAGE HOOK ERR: " + e);
+            XposedBridge.log("EskukapHook ERR: "+e);
         }
     }
 
-    // -------- загрузка JPEG по Uri из SettingsActivity --------
-    private static Bitmap loadBitmapFromUri(Context ctx, Uri uri) {
-        InputStream is = null;
+    private Context getContext() {
         try {
-            is = ctx.getContentResolver().openInputStream(uri);
-            if (is == null) return null;
+            Object at = XposedHelpers.callStaticMethod(
+                    XposedHelpers.findClass("android.app.ActivityThread", null),
+                    "currentActivityThread"
+            );
+            return (Context) XposedHelpers.callMethod(at, "getApplication");
+        } catch (Throwable e) {
+            XposedBridge.log("Eskukap ctx ERR "+e);
+            return null;
+        }
+    }
+
+    private static Bitmap loadBitmap(Context ctx, Uri uri) {
+        try (InputStream is = ctx.getContentResolver().openInputStream(uri)) {
             return BitmapFactory.decodeStream(is);
         } catch (Throwable e) {
-            XposedBridge.log("Eskukap loadBitmap ERR: " + e);
+            XposedBridge.log("Eskukap loadBitmap ERR "+e);
             return null;
-        } finally {
-            try { if (is != null) is.close(); } catch (Throwable ignored) {}
         }
     }
 
-    // -------- подмена содержимого Image (YUV_420_888) из Bitmap --------
-    private static void replaceImageWithBitmap(Image image, Bitmap bmp) {
+    private static void replace(Image image, Bitmap bmp) {
         if (image.getFormat() != ImageFormat.YUV_420_888) return;
 
-        int width  = image.getWidth();
-        int height = image.getHeight();
+        int w=image.getWidth(), h=image.getHeight();
+        bmp = Bitmap.createScaledBitmap(bmp, w, h, true);
 
-        if (bmp.getWidth() != width || bmp.getHeight() != height) {
-            bmp = Bitmap.createScaledBitmap(bmp, width, height, true);
-        }
+        int[] px = new int[w*h];
+        bmp.getPixels(px,0,w,0,0,w,h);
 
-        int[] argb = new int[width * height];
-        bmp.getPixels(argb, 0, width, 0, 0, width, height);
+        byte[] y=new byte[w*h], u=new byte[(w*h)/4], v=new byte[(w*h)/4];
 
-        // YUV 4:2:0 planar
-        byte[] y = new byte[width * height];
-        byte[] u = new byte[width * height / 4];
-        byte[] v = new byte[width * height / 4];
+        int p=0;
+        for(int j=0;j<h;j++){
+            for(int i=0;i<w;i++){
+                int c = px[p++];
+                int r=(c>>16)&255,g=(c>>8)&255,b=c&255;
+                int Y=(int)(0.299*r+0.587*g+0.114*b);
+                int U=(int)(-0.169*r-0.331*g+0.5*b+128);
+                int V=(int)(0.5*r-0.419*g-0.081*b+128);
 
-        int index = 0;
-        int uvIndex;
+                y[j*w+i]=(byte)Y;
 
-        for (int j = 0; j < height; j++) {
-            for (int i = 0; i < width; i++) {
-                int color = argb[index++];
-                int r = (color >> 16) & 0xff;
-                int g = (color >> 8) & 0xff;
-                int b = color & 0xff;
-
-                int Y = (int) (0.299 * r + 0.587 * g + 0.114 * b);
-                int U = (int) (-0.169 * r - 0.331 * g + 0.5 * b + 128);
-                int V = (int) (0.5 * r - 0.419 * g - 0.081 * b + 128);
-
-                if (Y < 0) Y = 0; if (Y > 255) Y = 255;
-                if (U < 0) U = 0; if (U > 255) U = 255;
-                if (V < 0) V = 0; if (V > 255) V = 255;
-
-                y[j * width + i] = (byte) Y;
-
-                // 4:2:0 subsampling: каждый 2x2 блок делит один U/V
-                if ((j % 2 == 0) && (i % 2 == 0)) {
-                    uvIndex = (j / 2) * (width / 2) + (i / 2);
-                    u[uvIndex] = (byte) U;
-                    v[uvIndex] = (byte) V;
+                if((j%2==0)&&(i%2==0)){
+                    int idx=(j/2)*(w/2)+(i/2);
+                    u[idx]=(byte)U;
+                    v[idx]=(byte)V;
                 }
             }
         }
 
-        Image.Plane[] planes = image.getPlanes();
+        Image.Plane[] pArr=image.getPlanes();
 
-        // ----- пишем Y -----
-        ByteBuffer yBuf = planes[0].getBuffer();
-        int yRowStride = planes[0].getRowStride();
-        int yPixelStride = planes[0].getPixelStride(); // обычно 1
-
-        yBuf.position(0);
-        for (int row = 0; row < height; row++) {
-            int rowOffset = row * width;
-            for (int col = 0; col < width; col++) {
-                int bufferIndex = row * yRowStride + col * yPixelStride;
-                yBuf.position(bufferIndex);
-                yBuf.put(y[rowOffset + col]);
+        // Y
+        ByteBuffer yB=pArr[0].getBuffer();
+        int ys=pArr[0].getRowStride(),yps=pArr[0].getPixelStride();
+        for(int j=0;j<h;j++)
+            for(int i=0;i<w;i++){
+                yB.position(j*ys+i*yps);
+                yB.put(y[j*w+i]);
             }
-        }
 
-        // ----- пишем U -----
-        ByteBuffer uBuf = planes[1].getBuffer();
-        int uRowStride = planes[1].getRowStride();
-        int uPixelStride = planes[1].getPixelStride();
-
-        uBuf.position(0);
-        for (int row = 0; row < height / 2; row++) {
-            for (int col = 0; col < width / 2; col++) {
-                int bufferIndex = row * uRowStride + col * uPixelStride;
-                int srcIndex = row * (width / 2) + col;
-                uBuf.position(bufferIndex);
-                uBuf.put(u[srcIndex]);
+        // U
+        ByteBuffer uB=pArr[1].getBuffer();
+        int us=pArr[1].getRowStride(),ups=pArr[1].getPixelStride();
+        for(int j=0;j<h/2;j++)
+            for(int i=0;i<w/2;i++){
+                uB.position(j*us+i*ups);
+                uB.put(u[j*(w/2)+i]);
             }
-        }
 
-        // ----- пишем V -----
-        ByteBuffer vBuf = planes[2].getBuffer();
-        int vRowStride = planes[2].getRowStride();
-        int vPixelStride = planes[2].getPixelStride();
-
-        vBuf.position(0);
-        for (int row = 0; row < height / 2; row++) {
-            for (int col = 0; col < width / 2; col++) {
-                int bufferIndex = row * vRowStride + col * vPixelStride;
-                int srcIndex = row * (width / 2) + col;
-                vBuf.position(bufferIndex);
-                vBuf.put(v[srcIndex]);
+        // V
+        ByteBuffer vB=pArr[2].getBuffer();
+        int vs=pArr[2].getRowStride(),vps=pArr[2].getPixelStride();
+        for(int j=0;j<h/2;j++)
+            for(int i=0;i<w/2;i++){
+                vB.position(j*vs+i*vps);
+                vB.put(v[j*(w/2)+i]);
             }
-        }
     }
 }
