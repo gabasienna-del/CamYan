@@ -1,11 +1,12 @@
 package com.gaba.eskukap;
 
 import android.media.Image;
-import android.media.ImageReader;
 import android.graphics.ImageFormat;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.nio.ByteBuffer;
+
+import androidx.camera.core.ImageProxy;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
@@ -15,15 +16,17 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 public class HookEntry implements IXposedHookLoadPackage {
 
-    private static byte[] buffer(ByteBuffer buffer){
+    // конвертация ByteBuffer → byte[]
+    private static byte[] getBytes(ByteBuffer buffer){
         byte[] bytes = new byte[buffer.remaining()];
         buffer.get(bytes);
         return bytes;
     }
 
-    private static void saveYUVtoFile(ImageProxy proxy) {
+    // сохранение YUV3 плоскостей в файл
+    private static void saveYUV(ImageProxy proxy) {
         try {
-            Image image = (Image) XposedHelpers.callMethod(proxy, "getImage");
+            Image image = proxy.getImage();
             if (image == null) return;
 
             Image.Plane[] p = image.getPlanes();
@@ -34,15 +37,15 @@ public class HookEntry implements IXposedHookLoadPackage {
             File file = new File(dir, "frame_" + System.currentTimeMillis() + ".yuv");
 
             FileOutputStream fos = new FileOutputStream(file);
-            fos.write(buffer(p[0].getBuffer())); // Y
-            fos.write(buffer(p[1].getBuffer())); // U
-            fos.write(buffer(p[2].getBuffer())); // V
+            fos.write(getBytes(p[0].getBuffer()));   // Y
+            fos.write(getBytes(p[1].getBuffer()));   // U
+            fos.write(getBytes(p[2].getBuffer()));   // V
             fos.close();
 
             XposedBridge.log("Eskukap: YUV saved -> " + file.getAbsolutePath());
 
         } catch (Throwable e) {
-            XposedBridge.log("Eskukap ERROR saveYUV " + e);
+            XposedBridge.log("Eskukap ERROR saveYUV -> " + e);
         }
     }
 
@@ -57,21 +60,24 @@ public class HookEntry implements IXposedHookLoadPackage {
                     lpparam.classLoader
             );
 
-            XposedBridge.log("Eskukap: CameraX Analyzer hook OK");
+            XposedBridge.log("Eskukap: CameraX Analyzer FOUND");
 
             XposedHelpers.findAndHookMethod(
                     analyzer,
                     "analyze",
-                    "androidx.camera.core.ImageProxy",
+                    ImageProxy.class,                        // <--- фикс
                     new XC_MethodHook() {
                         @Override
                         protected void afterHookedMethod(MethodHookParam param) {
-                            Object imageProxy = param.args[0];
-                            saveYUVtoFile((ImageProxy) imageProxy);
+                            ImageProxy proxy = (ImageProxy) param.args[0];
+                            saveYUV(proxy);
                         }
                     });
+
+            XposedBridge.log("Eskukap: Hook installed successfully");
+
         } catch (Throwable e) {
-            XposedBridge.log("Eskukap failed hook CameraX " + e);
+            XposedBridge.log("Eskukap FAIL hook CameraX -> " + e);
         }
     }
 }
