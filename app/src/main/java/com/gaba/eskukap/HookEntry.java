@@ -1,31 +1,37 @@
 package com.gaba.eskukap;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
+import de.robv.android.xposed.callbacks.XC_LoadPackage;
 import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
-
-import static de.robv.android.xposed.XposedHelpers.findAndHookMethod;
+import de.robv.android.xposed.XposedHelpers;
+import de.robv.android.xposed.callbacks.XC_MethodHook;
 
 public class HookEntry implements IXposedHookLoadPackage {
 
     @Override
-    public void handleLoadPackage(LoadPackageParam lpparam) throws Throwable {
+    public void handleLoadPackage(final XC_LoadPackage.LoadPackageParam lpparam) throws Throwable {
 
-        // тут выбираешь, для какого приложения хукать
-        String target = "ru.yandex.taximeter"; // или "ru.yandex.taximeter.passport" или "com.vkontakte.android"
+        if (!lpparam.packageName.equals("ru.yandex.taximeter")) return;
 
-        if (!lpparam.packageName.equals(target)) return;
+        XposedBridge.log("EskukapHook: handleLoadPackage OK for " + lpparam.packageName);
 
-        XposedBridge.log("EskukapHook: handleLoadPackage for " + lpparam.packageName);
-
-        // хукаем системный класс ImageReader
-        findAndHookMethod(
-                "android.media.ImageReader",
-                null,                 // ВАЖНО: системный класс → null
-                "acquireLatestImage",
-                new FakeCameraHook()
-        );
-
-        XposedBridge.log("EskukapHook: Camera hook injected");
+        try {
+            XposedHelpers.findAndHookMethod(
+                    "android.hardware.camera2.CameraDevice",
+                    lpparam.classLoader,
+                    "createCaptureSession",
+                    java.util.List.class,
+                    android.hardware.camera2.CameraCaptureSession.StateCallback.class,
+                    java.util.concurrent.Executor.class,
+                    new XC_MethodHook() {
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                            XposedBridge.log("Eskukap: Camera hook triggered");
+                        }
+                    }
+            );
+        } catch (Throwable e) {
+            XposedBridge.log("Eskukap ERROR: " + e);
+        }
     }
 }
