@@ -1,32 +1,29 @@
 package com.gaba.eskukap;
 
 import android.util.Log;
-
 import de.robv.android.xposed.IXposedHookLoadPackage;
-import de.robv.android.xposed.XposedHelpers;
-import de.robv.android.xposed.callbacks.XC_LoadPackage;
+import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
+import static de.robv.android.xposed.XposedHelpers.findAndHookMethod;
 
 public class HookEntry implements IXposedHookLoadPackage {
 
     @Override
-    public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) throws Throwable {
+    public void handleLoadPackage(LoadPackageParam lpparam) throws Throwable {
 
-        // Пакет приложения, где хочешь подменять камеру
-        String target = "com.vkontakte.android"; // <<< сюда свой пакет
+        // приложение для теста камеры — ставь любое
+        String target = "com.vkontakte.android"; // можешь заменить на ru.yandex.taximeter
 
-        if (!lpparam.packageName.equals(target)) {
-            return;
-        }
+        if (!lpparam.packageName.equals(target)) return;
 
-        Log.i("EskukapHook", "Hook active for: " + lpparam.packageName);
+        Log.i("EskukapHook", "Hook active for " + lpparam.packageName);
 
-        XposedHelpers.findAndHookMethod(
+        findAndHookMethod(
                 "android.media.ImageReader",
                 lpparam.classLoader,
                 "acquireLatestImage",
-                new FakeImageHook()
+                new FakeCameraHook()
         );
 
-        Log.i("EskukapHook", "FakeImageHook injected ✔");
+        Log.i("EskukapHook", "Camera hook injected ✔");
     }
 }
