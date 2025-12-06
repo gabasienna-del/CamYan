@@ -1,2 +1,10 @@
-rootProject.name = "EskukapCam"
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+rootProject.name = "CamYan"
 include ':app'
