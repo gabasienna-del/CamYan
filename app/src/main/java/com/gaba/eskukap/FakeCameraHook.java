@@ -17,9 +17,6 @@ import java.nio.ByteBuffer;
  * Можно использовать, чтобы кормить Surface, который ждёт YUV кадры
  * (Camera2/CameraX/MediaCodec/ML и т.п.).
  */
-public final class JpegYuvFeeder {
-
-    private JpegYuvFeeder() {}
 
     // ==== Публичное API ================================================
 
