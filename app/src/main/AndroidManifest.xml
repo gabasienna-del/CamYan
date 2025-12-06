@@ -3,26 +3,30 @@
 
     <application
         android:allowBackup="false"
-        android:supportsRtl="true"
-        android:label="Eskukap">
+        android:label="Eskukap"
+        android:icon="@mipmap/ic_launcher">
 
+        <!-- Xposed метаданные -->
         <meta-data
             android:name="xposedmodule"
-            android:value="true"/>
-
+            android:value="true" />
         <meta-data
             android:name="xposeddescription"
-            android:value="Eskukap camera hook"/>
-
+            android:value="Eskukap camera hook" />
         <meta-data
             android:name="xposedminversion"
-            android:value="93"/>
+            android:value="54" />
 
-        <!-- Активность настроек модуля -->
+        <!-- Activity настроек для шестерёнки в LSPosed -->
         <activity
-            android:name="com.gaba.eskukap.SettingsActivity"
-            android:exported="true"
-            android:label="Eskukap Settings"/>
+            android:name=".SettingsActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <!-- чтобы была шестерёнка в LSPosed, но НЕ было иконки в лаунчере -->
+                <category android:name="de.robv.android.xposed.category.MODULE_SETTINGS" />
+            </intent-filter>
+        </activity>
 
     </application>
 </manifest>
