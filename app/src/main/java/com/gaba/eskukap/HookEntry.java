@@ -11,7 +11,7 @@ public class HookEntry implements IXposedHookLoadPackage {
     public void handleLoadPackage(LoadPackageParam lpparam) throws Throwable {
 
         // приложение для теста камеры — ставь любое
-        String target = "com.vkontakte.android"; // можешь заменить на ru.yandex.taximeter
+        String target = "ru.yandex.taximeter"; // можешь заменить на com.vkontakte.android
 
         if (!lpparam.packageName.equals(target)) return;
 
