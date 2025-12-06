@@ -28,6 +28,12 @@
             </intent-filter>
         </activity>
 
-    </application>
+    <activity android:name="com.gaba.eskukap.SettingsActivity" android:exported="true" android:label="Eskukap Settings"/> </application>
 
 </manifest>
+
+    <!-- Настройки модуля -->
+    <activity
+        android:name="com.gaba.eskukap.SettingsActivity"
+        android:exported="true"
+        android:label="Eskukap Settings"/>

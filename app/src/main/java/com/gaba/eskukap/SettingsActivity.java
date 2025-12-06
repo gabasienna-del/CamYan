@@ -1,103 +1,63 @@
 package com.gaba.eskukap;
 
 import android.app.Activity;
-import android.content.ContentValues;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Environment;
-import android.provider.MediaStore;
-import android.view.Gravity;
 import android.widget.Button;
-import android.widget.LinearLayout;
 import android.widget.Toast;
-
+import java.io.File;
 import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.FileOutputStream;
 
 public class SettingsActivity extends Activity {
 
-    private static final int PICK = 101;
-    // Итоговый путь, с которым работает хук:
-    // /storage/emulated/0/Pictures/CamYan/fake.jpg
+    private static final int PICK_IMAGE = 1001;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        LinearLayout layout = new LinearLayout(this);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setGravity(Gravity.CENTER);
-
-        Button btn = new Button(this);
-        btn.setText("ВЫБРАТЬ ФОТО (FAKE.JPG)");
-
-        btn.setOnClickListener(v -> pick());
-
-        layout.addView(btn,
-                new LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT));
-
-        setContentView(layout);
+        Button b = new Button(this);
+        b.setText("Выбрать фото для камеры (JPG)");
+        b.setOnClickListener(v -> openGallery());
+        setContentView(b);
     }
 
-    private void pick() {
-        Intent i = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-        i.setType("image/*");
-        startActivityForResult(i, PICK);
+    private void openGallery() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("image/*");
+        startActivityForResult(intent, PICK_IMAGE);
     }
 
     @Override
-    protected void onActivityResult(int rq, int res, Intent data) {
-        super.onActivityResult(rq, res, data);
-        if (rq == PICK && res == RESULT_OK && data != null && data.getData() != null) {
-            saveToPictures(data.getData());
+    protected void onActivityResult(int req, int res, Intent data) {
+        super.onActivityResult(req, res, data);
+        if (req == PICK_IMAGE && res == Activity.RESULT_OK && data != null) {
+            Uri uri = data.getData();
+            if (uri != null) save(uri);
         }
     }
 
-    private void saveToPictures(Uri src) {
+    private void save(Uri uri) {
         try {
-            // создаём/перезаписываем картинку в Pictures/CamYan/fake.jpg
-            ContentValues values = new ContentValues();
-            values.put(MediaStore.Images.Media.DISPLAY_NAME, "fake.jpg");
-            values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
-            values.put(MediaStore.Images.Media.RELATIVE_PATH,
-                    Environment.DIRECTORY_PICTURES + "/CamYan");
-
-            Uri dst = getContentResolver().insert(
-                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
-
-            if (dst == null) {
-                Toast.makeText(this, "Не удалось создать файл в Pictures", Toast.LENGTH_LONG).show();
-                return;
-            }
-
-            InputStream in = getContentResolver().openInputStream(src);
-            OutputStream out = getContentResolver().openOutputStream(dst, "w");
-
-            if (in == null || out == null) {
-                Toast.makeText(this, "Ошибка доступа к файлам", Toast.LENGTH_LONG).show();
-                if (in != null) in.close();
-                if (out != null) out.close();
-                return;
-            }
+            InputStream is = getContentResolver().openInputStream(uri);
+            File dir = new File("/data/local/tmp/eskukap/");
+            dir.mkdirs();
+            File out = new File(dir,"frame.jpg");
+            FileOutputStream fos = new FileOutputStream(out);
 
             byte[] buf = new byte[4096];
-            int n;
-            while ((n = in.read(buf)) > 0) {
-                out.write(buf, 0, n);
-            }
-            in.close();
-            out.flush();
-            out.close();
+            int r;
+            while ((r = is.read(buf)) > 0) fos.write(buf,0,r);
 
-            Toast.makeText(this,
-                    "Сохранено в Pictures/CamYan/fake.jpg",
-                    Toast.LENGTH_LONG).show();
+            is.close();
+            fos.close();
 
+            Toast.makeText(this,"Фото сохранено:\n"+out.getAbsolutePath(),Toast.LENGTH_LONG).show();
         } catch (Exception e) {
-            Toast.makeText(this, "Ошибка: " + e, Toast.LENGTH_LONG).show();
+            Toast.makeText(this,"Ошибка: "+e,Toast.LENGTH_LONG).show();
         }
     }
 }
