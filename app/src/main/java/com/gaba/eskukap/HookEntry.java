@@ -16,11 +16,12 @@ public class HookEntry implements IXposedHookLoadPackage {
     @Override
     public void handleLoadPackage(final XC_LoadPackage.LoadPackageParam lpparam) {
 
+        // Хукаем только таксометр
         if (!"ru.yandex.taximeter".equals(lpparam.packageName)) return;
 
         XposedBridge.log("EskukapHook: Loaded ru.yandex.taximeter");
 
-        // 1) CameraManager.openCamera
+        // ---- 1. Хук открытия камеры (CameraManager.openCamera) ----
         try {
             XposedHelpers.findAndHookMethod(
                     CameraManager.class,
@@ -31,20 +32,20 @@ public class HookEntry implements IXposedHookLoadPackage {
                     new XC_MethodHook() {
                         @Override
                         protected void beforeHookedMethod(MethodHookParam param) {
-                            XposedBridge.log("EskukapHook: Camera open -> " + param.args[0]);
+                            XposedBridge.log("EskukapHook: Camera open request -> " + param.args[0]);
                         }
 
                         @Override
                         protected void afterHookedMethod(MethodHookParam param) {
-                            XposedBridge.log("EskukapHook: Camera opened OK");
+                            XposedBridge.log("EskukapHook: Camera opened");
                         }
                     }
             );
-        } catch (Exception e) {
-            XposedBridge.log("EskukapHook openCamera ERROR " + e);
+        } catch (Throwable e) {
+            XposedBridge.log("EskukapHook CAMERA2 openCamera HOOK ERROR: " + e);
         }
 
-        // 2) Camera2 CaptureComplete
+        // ---- 2. Camera2: перехват кадров через CaptureCallback.onCaptureCompleted ----
         try {
             XposedHelpers.findAndHookMethod(
                     "android.hardware.camera2.CameraCaptureSession$CaptureCallback",
@@ -56,15 +57,15 @@ public class HookEntry implements IXposedHookLoadPackage {
                     new XC_MethodHook() {
                         @Override
                         protected void afterHookedMethod(MethodHookParam param) {
-                            XposedBridge.log("EskukapHook: Capture completed");
+                            XposedBridge.log("EskukapHook: Capture completed — frame available (Camera2)");
                         }
                     }
             );
-        } catch (Exception e) {
-            XposedBridge.log("EskukapHook CaptureCallback ERROR " + e);
+        } catch (Throwable e) {
+            XposedBridge.log("EskukapHook CAMERA2 CaptureCallback HOOK ERROR: " + e);
         }
 
-        // 3) CameraX Analyzer
+        // ---- 3. CameraX: статический хук Analyzer.analyze(ImageProxy) ----
         try {
             XposedHelpers.findAndHookMethod(
                     "androidx.camera.core.ImageAnalysis$Analyzer",
@@ -74,15 +75,17 @@ public class HookEntry implements IXposedHookLoadPackage {
                     new XC_MethodHook() {
                         @Override
                         protected void afterHookedMethod(MethodHookParam param) {
-                            XposedBridge.log("EskukapHook: CameraX analyze frame");
+                            Object imageProxy = param.args[0];
+                            XposedBridge.log("EskukapHook: CameraX analyze() frame -> " + imageProxy);
+                            // TODO: подмена содержимого через ImageProxy, если нужно
                         }
                     }
             );
-        } catch (Exception e) {
-            XposedBridge.log("EskukapHook Analyzer ERROR " + e);
+        } catch (Throwable e) {
+            XposedBridge.log("EskukapHook CAMERAX Analyzer HOOK ERROR: " + e);
         }
 
-        // 4) MediaCodec queueInputBuffer
+        // ---- 4. MediaCodec.queueInputBuffer (видеопоток) ----
         try {
             XposedHelpers.findAndHookMethod(
                     "android.media.MediaCodec",
@@ -92,39 +95,51 @@ public class HookEntry implements IXposedHookLoadPackage {
                     new XC_MethodHook() {
                         @Override
                         protected void beforeHookedMethod(MethodHookParam param) {
-                            XposedBridge.log("EskukapHook: MediaCodec buffer idx=" + param.args[0]);
+                            int index = (int) param.args[0];
+                            int offset = (int) param.args[1];
+                            int size   = (int) param.args[2];
+                            long pts   = (long) param.args[3];
+
+                            XposedBridge.log(
+                                    "EskukapHook: MediaCodec.queueInputBuffer idx=" +
+                                            index + " off=" + offset + " size=" + size + " pts=" + pts
+                            );
+                            // TODO: здесь можно менять содержимое ByteBuffer перед кодеком
                         }
                     }
             );
-        } catch (Exception e) {
-            XposedBridge.log("EskukapHook MediaCodec ERROR " + e);
+        } catch (Throwable e) {
+            XposedBridge.log("EskukapHook MEDIACODEC queueInputBuffer HOOK ERROR: " + e);
         }
 
-        // 5) ImageReader.acquireLatestImage — без image.close()
+        // ---- 5. ImageReader: хук acquireLatestImage() ----
         try {
             XposedHelpers.findAndHookMethod(
                     ImageReader.class,
                     "acquireLatestImage",
                     new XC_MethodHook() {
+
                         @Override
                         protected void afterHookedMethod(MethodHookParam param) {
                             Image image = (Image) param.getResult();
                             if (image != null) {
                                 int w = image.getWidth();
                                 int h = image.getHeight();
-                                XposedBridge.log("EskukapHook: Frame " + w + "x" + h);
+                                XposedBridge.log("EskukapHook: ImageReader frame " + w + "x" + h);
 
-                                // *** обработка кадра здесь ***
-                                // image.close();  // убрано как просили
+                                // ↓↓↓ Сюда вставлять обработку кадра
+                                // (JPG → YUV → подмена содержимого, запись в буфер и т.п.)
+
+                                // image.close(); // НЕ закрываем — пусть приложение само закроет
                             }
                         }
                     }
             );
-        } catch (Exception e) {
-            XposedBridge.log("EskukapHook ImageReader ERROR " + e);
+        } catch (Throwable e) {
+            XposedBridge.log("EskukapHook IMAGEREADER acquireLatestImage HOOK ERROR: " + e);
         }
 
-        // 6) Dynamic load Analyzer
+        // ---- 6. Динамический хук через ClassLoader.loadClass для Analyzer ----
         try {
             XposedHelpers.findAndHookMethod(
                     ClassLoader.class,
@@ -134,15 +149,35 @@ public class HookEntry implements IXposedHookLoadPackage {
                         @Override
                         protected void afterHookedMethod(MethodHookParam param) {
                             String name = (String) param.args[0];
+                            Object result = param.getResult();
+
+                            if (!(result instanceof Class<?>)) return;
 
                             if ("androidx.camera.core.ImageAnalysis$Analyzer".equals(name)) {
-                                XposedBridge.log("EskukapHook: Analyzer loaded dynamically");
+                                Class<?> cls = (Class<?>) result;
+                                XposedBridge.log("EskukapHook: Analyzer LOADED -> Hooking analyze() dynamically");
+
+                                try {
+                                    XposedHelpers.findAndHookMethod(
+                                            cls,
+                                            "analyze",
+                                            "androidx.camera.core.ImageProxy",
+                                            new XC_MethodHook() {
+                                                @Override
+                                                protected void beforeHookedMethod(MethodHookParam param) {
+                                                    XposedBridge.log("EskukapHook: Frame received! (dynamic ClassLoader hook)");
+                                                }
+                                            }
+                                    );
+                                } catch (Throwable e) {
+                                    XposedBridge.log("EskukapHook: Error hooking Analyzer.analyze dynamically: " + e);
+                                }
                             }
                         }
                     }
             );
-        } catch (Exception e) {
-            XposedBridge.log("EskukapHook loadClass ERROR " + e);
+        } catch (Throwable e) {
+            XposedBridge.log("EskukapHook LOADCLASS HOOK ERROR: " + e);
         }
     }
 }
