@@ -66,7 +66,6 @@ public class HookEntry implements IXposedHookLoadPackage {
         }
 
         // ---- 3. CameraX: статический хук Analyzer.analyze(ImageProxy) ----
-        // ВАЖНО: используем имена классов строками, чтобы не тянуть androidx зависимость в модуль
         try {
             XposedHelpers.findAndHookMethod(
                     "androidx.camera.core.ImageAnalysis$Analyzer",
@@ -114,7 +113,6 @@ public class HookEntry implements IXposedHookLoadPackage {
         }
 
         // ---- 5. ImageReader: хук acquireLatestImage() ----
-        // Правильно цепляться к acquireLatestImage() или acquireNextImage().
         try {
             XposedHelpers.findAndHookMethod(
                     ImageReader.class,
@@ -124,15 +122,15 @@ public class HookEntry implements IXposedHookLoadPackage {
                         @Override
                         protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                             Image image = (Image) param.getResult();
-
                             if (image != null) {
                                 int w = image.getWidth();
                                 int h = image.getHeight();
-
                                 XposedBridge.log("EskukapHook: ImageReader frame " + w + "x" + h);
 
-                                // ❗ здесь позже сделаем подмену кадра (JPG → YUV → в image/буфер)
-                                // image.close(); // по просьбе: НЕ закрываем здесь, пусть приложение само закроет
+                                // ↓↓↓ Сюда вставлять обработку кадра
+                                // (JPG → YUV → подмена содержимого, запись в буфер и т.п.)
+
+                                // image.close(); // НЕ закрываем — пусть приложение само закроет
                             }
                         }
                     }
@@ -142,8 +140,6 @@ public class HookEntry implements IXposedHookLoadPackage {
         }
 
         // ---- 6. Динамический хук через ClassLoader.loadClass для Analyzer ----
-        // Если класс анализатора грузится динамически и статический хук не сработал,
-        // этот хук поймает момент загрузки и навесит analyze().
         try {
             XposedHelpers.findAndHookMethod(
                     ClassLoader.class,
