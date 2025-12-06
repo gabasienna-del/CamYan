@@ -1,50 +1,41 @@
 package com.gaba.eskukap;
 
+import android.os.Environment;
 import android.util.Log;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.IOException;
 
 public class FileHelper {
 
-    private static final String TAG = "FileHelper";
+    private static final String TAG = "EskukapFile";
 
-    // Простое чтение файла в byte[]
     public static byte[] readFile(String path) {
-        File file = new File(path);
-        if (!file.exists()) {
-            Log.e(TAG, "readFile: file not exists: " + path);
-            return null;
-        }
 
-        FileInputStream fis = null;
-        ByteArrayOutputStream bos = null;
+        String[] tryPaths = new String[]{
+                path,
+                "/storage/emulated/0/eskukap/frame.jpg",
+                "/sdcard/eskukap/frame.jpg",
+                Environment.getExternalStorageDirectory().getPath() + "/eskukap/frame.jpg"
+        };
 
-        try {
-            fis = new FileInputStream(file);
-            bos = new ByteArrayOutputStream();
-
-            byte[] buf = new byte[4096];
-            int r;
-            while ((r = fis.read(buf)) != -1) {
-                bos.write(buf, 0, r);
-            }
-
-            return bos.toByteArray();
-        } catch (IOException e) {
-            Log.e(TAG, "readFile: error reading " + path, e);
-            return null;
-        } finally {
+        for (String p : tryPaths) {
             try {
-                if (fis != null) fis.close();
-            } catch (IOException ignored) {
-            }
-            try {
-                if (bos != null) bos.close();
-            } catch (IOException ignored) {
+                File f = new File(p);
+                if (f.exists()) {
+                    FileInputStream fis = new FileInputStream(f);
+                    byte[] data = new byte[(int) f.length()];
+                    fis.read(data);
+                    fis.close();
+                    Log.i(TAG, "Loaded: " + p + " size=" + data.length);
+                    return data;
+                } else {
+                    Log.w(TAG, "Try no file: " + p);
+                }
+            } catch (Throwable e) {
+                Log.e(TAG, "readFile err: " + p + "  " + e);
             }
         }
+        return null;
     }
 }
