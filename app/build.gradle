@@ -1,0 +1,25 @@
+plugins {
+    id 'com.android.library'
+}
+
+android {
+    namespace 'com.gaba.eskukap'
+    compileSdk 33
+
+    defaultConfig {
+        minSdk 21
+        targetSdk 33
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    // если собираешь как приложение, поменяй на com.android.application и добавь android.signingConfigs и т.д.
+}
+
+dependencies {
+    // Подключаем jar из app/libs, если добавишь туда
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+}
