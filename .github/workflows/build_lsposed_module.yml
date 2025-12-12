@@ -1,49 +1,37 @@
-name: Build LSPosed module (zip only)
+name: Build LSPosed module
 
 on:
   push:
-    branches: [ main ]
-  workflow_dispatch:
+    branches: [ "main" ]
 
 jobs:
-  build-module:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      - name: Prepare module directory
-        run: |
-          rm -rf out
-          mkdir -p out/module
-          # copy smali if present
-          if [ -d "smali" ]; then
-            cp -r smali out/module/ || true
-          fi
-          # create module.prop
-          cat > out/module/module.prop <<PROPMARK
-id=CamYan
-name=CamYan Hook
-version=1.0
-versionCode=1
-author=Gabit
-description=Hook module (ESKUKAP)
-PROPMARK
-          ls -la out/module || true
+    - name: Prepare module directory
+      run: |
+        rm -rf out
+        mkdir -p out/module
+        if [ -d smali ]; then cp -r smali out/module/; fi
+        echo "id=CamYan" > out/module/module.prop
+        echo "name=CamYan Hook" >> out/module/module.prop
+        echo "version=1.0" >> out/module/module.prop
+        echo "versionCode=1" >> out/module/module.prop
+        echo "author=Gabit" >> out/module/module.prop
+        echo "description=Hook module (ESKUKAP)" >> out/module/module.prop
 
-      - name: Pack module ZIP
-        run: |
-          SHA=$(git rev-parse --short HEAD)
-          ZIPNAME="CamYan-module-${SHA}.zip"
-          cd out
-          zip -r "../${ZIPNAME}" module
-          cd ..
-          echo "Created: ${ZIPNAME}"
-          ls -la ${ZIPNAME} || true
+    - name: Pack ZIP
+      run: |
+        cd out
+        zip -r CamYan-module.zip module
+        cd ..
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: CamYan-module
-          path: CamYan-module-*.zip
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: CamYan-module
+        path: out/CamYan-module.zip
