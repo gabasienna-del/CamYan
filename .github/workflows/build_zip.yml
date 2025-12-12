@@ -1,0 +1,40 @@
+name: Build ZIP artifact
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-zip:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare output directory
+        run: |
+          mkdir -p out
+
+      - name: Create ZIP of module (app + smali if present)
+        run: |
+          SHA=$(git rev-parse --short HEAD)
+          ZIPNAME="CamYan-${SHA}.zip"
+          if [ -d "app" ] || [ -d "smali" ]; then
+            rm -f "$ZIPNAME"
+            zip -r "$ZIPNAME" app smali || true
+          else
+            rm -f "$ZIPNAME"
+            zip -r "$ZIPNAME" . -x ".git/*" || true
+          fi
+          mv "$ZIPNAME" out/
+
+      - name: List outputs
+        run: ls -la out || true
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CamYan-zip
+          path: out/*.zip
