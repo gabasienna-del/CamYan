@@ -5,6 +5,7 @@ import android.app.Application;
 import com.gaba.eskukap.security.AntiDebug;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
+import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
@@ -21,7 +22,7 @@ public class HookEntry implements IXposedHookLoadPackage {
         XposedHelpers.findAndHookMethod(
                 Application.class,
                 "onCreate",
-                new XC_LoadPackage.XC_MethodHook() {
+                new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) {
                         AntiDebug.Result r = AntiDebug.INSTANCE.scan();
@@ -29,6 +30,5 @@ public class HookEntry implements IXposedHookLoadPackage {
                     }
                 }
         );
-;
     }
 }
