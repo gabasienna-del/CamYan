@@ -35,7 +35,8 @@ jobs:
       - name: Sign APK
         run: |
           APK=$(ls app/build/outputs/apk/**/*.apk | head -n 1)
-          $ANDROID_HOME/build-tools/*/apksigner sign \
+          BT=$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)
+          "$ANDROID_HOME/build-tools/$BT/apksigner" sign \
             --ks debug.keystore \
             --ks-pass pass:android \
             --key-pass pass:android \
