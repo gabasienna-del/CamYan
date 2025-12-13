@@ -1,25 +1,26 @@
 plugins {
-    id 'com.android.library'
+    id 'com.android.application'
 }
 
 android {
-    namespace 'com.gaba.eskukap'
-    compileSdk 33
+    namespace "com.gaba.eskukap"
+    compileSdk 34
 
     defaultConfig {
-        minSdk 21
-        targetSdk 33
+        applicationId "com.gaba.eskukap"
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
     }
 
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_11
-        targetCompatibility JavaVersion.VERSION_11
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
     }
-
-    // если собираешь как приложение, поменяй на com.android.application и добавь android.signingConfigs и т.д.
 }
 
 dependencies {
-    // Подключаем jar из app/libs, если добавишь туда
-    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    compileOnly files('libs/api-82.jar')
 }
